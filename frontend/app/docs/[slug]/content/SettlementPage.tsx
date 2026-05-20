@@ -1,0 +1,29 @@
+import { H1, P, Mono } from '@/components/docs/DocsPrimitives';
+
+export default function SettlementPage() {
+  const steps = [
+    { n: '1', title: 'Signature verification', desc: "Retrieve the maker's registered signing key from pool_registry. Compute SHA256(XDR(quote)). Verify the ed25519 signature against this hash. Reject if invalid." },
+    { n: '2', title: 'Maker is active', desc: 'Check pool_registry that the maker is not deactivated. Reject if maker is suspended or unregistered.' },
+    { n: '3', title: 'Quote not expired', desc: 'Compare quote.expiry against the current ledger timestamp. Reject if expired.' },
+    { n: '4', title: 'Taker matches invoker', desc: 'Verify that the transaction invoker matches quote.taker. Quotes are non-transferable — only the specific taker can use a quote.' },
+    { n: '5', title: 'Quote ID not replayed', desc: 'Check a spent-quote ledger set. Reject if quote_id has already been used. Each quote can only settle once.' },
+    { n: '6', title: 'Execute vault swap', desc: 'Call vault.execute_swap(quote): move amount_in from taker to vault, move amount_out from vault to taker.' },
+    { n: '7', title: 'Collect fee', desc: 'Calculate fee_amount = amount_out × fee_bps / 10000. Call fee_distributor.collect_fee(token_out, fee_amount).' },
+  ];
+
+  return (
+    <>
+      <H1 tag="Protocol Spec">Settlement Logic</H1>
+      <P>On-chain settlement is handled exclusively by the <Mono>quote_verifier</Mono> contract. It performs the following checks in order — any failure reverts the entire transaction:</P>
+
+      <div className="space-y-3 mt-4">
+        {steps.map(s => (
+          <div key={s.n} className="flex gap-4 border border-black/10 rounded-xl p-4 bg-white text-sm hover:-translate-y-0.5 transition-transform">
+            <span className="font-display font-bold text-lavender-deep w-5 shrink-0">{s.n}</span>
+            <div><span className="font-semibold text-ink">{s.title}: </span><span className="text-ink-muted">{s.desc}</span></div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
