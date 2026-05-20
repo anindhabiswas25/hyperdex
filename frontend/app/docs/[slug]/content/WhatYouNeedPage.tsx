@@ -1,0 +1,51 @@
+import { H1, H2, P, Ul, Li, Code, Callout, Mono } from '@/components/docs/DocsPrimitives';
+
+export default function WhatYouNeedPage() {
+  return (
+    <>
+      <H1 tag="Getting Started">What You Need to Trade</H1>
+      <P>Trading on HyperDex requires three things: a Stellar wallet, test tokens, and a funded XLM balance for transaction fees.</P>
+
+      <H2 id="install-freighter">1. Install Freighter</H2>
+      <P>Freighter is the official Stellar browser wallet and the only wallet HyperDex currently supports. It is a browser extension (Chrome / Brave / Firefox).</P>
+      <Ul>
+        <Li>Download from <strong>freighter.app</strong> and install the extension</Li>
+        <Li>Create or import a wallet and <strong>set network to Testnet</strong> (Settings → Network → Testnet)</Li>
+        <Li>Keep your seed phrase safe — HyperDex never has access to it</Li>
+      </Ul>
+      <Callout type="warn" title="Testnet Only">HyperDex is currently running on Stellar Testnet. Never use mainnet funds or a mainnet-configured wallet.</Callout>
+
+      <H2 id="get-xlm">2. Get XLM for Fees</H2>
+      <P>Every Stellar transaction requires a small XLM fee (typically 0.00001 XLM). Get free testnet XLM from the Stellar Friendbot:</P>
+      <Code>{`curl "https://friendbot.stellar.org/?addr=YOUR_STELLAR_ADDRESS"`}</Code>
+
+      <H2 id="get-stablecoins">3. Get USDC / EURC</H2>
+      <P>HyperDex swaps USDC ↔ EURC — both are Circle-issued stablecoins on Stellar. Get testnet versions from the Circle faucet:</P>
+      <Ul>
+        <Li>Visit <strong>faucet.circle.com</strong></Li>
+        <Li>Select network: <strong>Stellar</strong></Li>
+        <Li>Select asset: <strong>USDC</strong> or <strong>EURC</strong></Li>
+        <Li>Enter your Stellar address and request tokens</Li>
+      </Ul>
+
+      <H2 id="run-services">4. Run Services (for local testing)</H2>
+      <Code>{`# Terminal 1 — Backend API + WS hub
+cd backend && npm run dev
+# → HyperDEX Backend running on port 4000
+
+# Terminal 2 — Maker SDK (provides liquidity)
+cd maker-sdk && npm run dev
+# → Maker server listening on port 3001
+# → Connected to backend WS
+
+# Terminal 3 — Frontend
+cd frontend && npm run dev
+# → Ready on http://localhost:3000
+
+# Verify all systems are live:
+curl http://localhost:4000/health
+# → { "status": "ok", "activeMakers": 1, "dbStatus": "connected" }`}</Code>
+      <Callout type="tip" title="activeMakers must be 1">If the health check returns <Mono>activeMakers: 0</Mono>, the Maker SDK is not connected. Check Terminal 2 logs for connection errors.</Callout>
+    </>
+  );
+}
