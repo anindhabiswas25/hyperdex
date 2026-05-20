@@ -1,0 +1,38 @@
+import type { Metadata } from 'next';
+import { DM_Sans, Space_Mono, Playfair_Display } from 'next/font/google';
+import './globals.css';
+import WalletProviders from '@/components/wallet/WalletProviders';
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800', '900'],
+  variable: '--font-dm-sans',
+});
+
+const spaceMono = Space_Mono({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-space-mono',
+});
+
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800', '900'],
+  variable: '--font-playfair',
+});
+
+export const metadata: Metadata = {
+  title: 'HyperDex | Trade Without Limits',
+  description: 'Institutional-grade RFQ liquidity and zero-slippage execution on Stellar.',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body className={`${dmSans.variable} ${spaceMono.variable} ${playfair.variable} font-display bg-cream text-ink`}>
+        <WalletProviders />
+        {children}
+      </body>
+    </html>
+  );
+}
