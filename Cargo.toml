@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = [
+    "contracts/pool_registry",
+    "contracts/fee_distributor",
+    "contracts/quote_verifier",
+    "contracts/maker_pool",
+    "contracts/maker_pool_factory",
+]
+
+[workspace.dependencies]
+soroban-sdk = { version = "22.0.0" }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = true
+lto = true
+panic = "abort"
+codegen-units = 1
+
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true
