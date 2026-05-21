@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 export async function GET(_req: NextRequest, { params }: { params: { address: string } }) {
-  const backendUrl = process.env.BACKEND_URL ?? 'http://localhost:4000';
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000';
   try {
     const res = await fetch(`${backendUrl}/api/makers/application/${params.address}`, {
       cache: 'no-store',
