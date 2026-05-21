@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 
-const BACKEND_HTTP_URL = process.env.BACKEND_HTTP_URL ?? 'http://localhost:4000';
+const BACKEND_HTTP_URL = process.env.BACKEND_HTTP_URL ?? 'https://hyperdex.onrender.com';
 const credDir = path.join(__dirname, '../credentials');
 
 interface MakerInfo {

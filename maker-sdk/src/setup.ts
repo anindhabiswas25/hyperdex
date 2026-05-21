@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 
-const BACKEND_HTTP_URL = process.env.BACKEND_HTTP_URL ?? 'http://localhost:4000';
+const BACKEND_HTTP_URL = process.env.BACKEND_HTTP_URL ?? 'https://hyperdex.onrender.com';
 const USDC_CONTRACT = 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA';
 const EURC_CONTRACT = 'CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ';
 
@@ -37,7 +37,7 @@ async function main() {
     console.log(chalk.gray('  ─────────────────────────────────────────────'));
     console.log(chalk.gray('  You need an API key from the HyperDEX admin.'));
     console.log(chalk.gray('  If you do not have one yet:'));
-    console.log(chalk.gray('    1. Visit localhost:3000/maker'));
+    console.log(chalk.gray('    1. Visit https://hyperdex-psi.vercel.app/maker'));
     console.log(chalk.gray('    2. Submit your application'));
     console.log(chalk.gray('    3. Wait for admin approval and email'));
     console.log(chalk.gray('  ─────────────────────────────────────────────\n'));
@@ -159,7 +159,7 @@ async function main() {
       ``,
       `# Network`,
       `PORT=3001`,
-      `BACKEND_WS_URL=ws://localhost:4000/ws/maker`,
+      `BACKEND_WS_URL=wss://hyperdex.onrender.com/ws/maker`,
       ``,
       `# Token contracts (Stellar Testnet SAC addresses)`,
       `USDC_CONTRACT=${USDC_CONTRACT}`,
@@ -198,7 +198,7 @@ async function main() {
     console.log(chalk.yellow('  📋 Copy this key — you may need it if backend is offline'));
     console.log();
     console.log(chalk.white('  Next steps:'));
-    console.log(chalk.gray('  1. Visit localhost:3000/maker'));
+    console.log(chalk.gray('  1. Visit https://hyperdex-psi.vercel.app/maker'));
     console.log(chalk.gray('  2. Click [Deploy Pool Contract] (signer key is auto-filled)'));
     console.log(chalk.gray('  3. Deposit inventory to your pool'));
     console.log(chalk.gray('  4. Run: ') + chalk.cyan(`npm run dev ${credentialName}`));
