@@ -46,7 +46,7 @@
 
 HyperDEX is a **production-grade sealed-bid RFQ (Request-for-Quote) DEX** built on Stellar Soroban. It enables gasless, zero-slippage USDC ↔ EURC swaps by separating price discovery (off-chain, by market makers) from settlement (on-chain, by Soroban contracts).
 
-Inspired by [Hashflow](https://hashflow.com), HyperDEX introduces the first RFQ architecture on Stellar:
+HyperDEX introduces the first RFQ architecture on Stellar:
 
 1. A **taker** requests a swap quote from the backend
 2. The backend dispatches an **RFQ** to connected market makers over WebSocket
