@@ -66,8 +66,8 @@ const MAKER_ADDRESS = process.env.MAKER_ADDRESS || ''
 const MAKER_API_KEY = process.env.MAKER_API_KEY || ''
 const SIGNER_PRIVATE_KEY = process.env.SIGNER_PRIVATE_KEY || ''
 const PORT = parseInt(process.env.PORT || '3001', 10)
-const BACKEND_HTTP_URL = process.env.BACKEND_HTTP_URL ?? 'http://localhost:4000'
-const BACKEND_WS_URL = process.env.BACKEND_WS_URL ?? 'ws://localhost:4000/ws/maker'
+const BACKEND_HTTP_URL = process.env.BACKEND_HTTP_URL ?? 'https://hyperdex.onrender.com'
+const BACKEND_WS_URL = process.env.BACKEND_WS_URL ?? 'wss://hyperdex.onrender.com/ws/maker'
 const USDC_CONTRACT = process.env.USDC_CONTRACT || process.env.USDC_CONTRACT_ADDRESS || ''
 const EURC_CONTRACT = process.env.EURC_CONTRACT || process.env.EURC_CONTRACT_ADDRESS || ''
 
@@ -93,7 +93,7 @@ if (_missing.length > 0) {
 
 if (!process.env.POOL_ADDRESS) {
   console.warn(chalk.yellow('  ⚠ POOL_ADDRESS not set — inventory will read as 0'))
-  console.warn(chalk.yellow('  Deploy your pool at localhost:3000/maker then add:'))
+  console.warn(chalk.yellow('  Deploy your pool at https://hyperdex-psi.vercel.app/maker then add:'))
   console.warn(chalk.cyan(`  POOL_ADDRESS=C... to credentials/${credentialName || '<name>'}.cred`))
 }
 

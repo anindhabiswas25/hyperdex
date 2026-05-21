@@ -92,7 +92,7 @@ export class MakerWsClient {
   private connect(): void {
     if (this.stopping) return
 
-    const wsUrl = process.env.BACKEND_WS_URL || 'ws://localhost:4000/ws/maker'
+    const wsUrl = process.env.BACKEND_WS_URL || 'wss://hyperdex.onrender.com/ws/maker'
     const apiKey = process.env.MAKER_API_KEY || ''
     const makerName = process.env.MAKER_NAME || 'HyperDEX Maker'
 
@@ -107,6 +107,18 @@ export class MakerWsClient {
     this.ws.on('open', () => {
       console.log('[WS] Connected to HyperDEX backend')
       this.reconnectDelay = 1000
+
+      // Render drops idle connections after 30s — ping every 20s to keep alive
+      const pingInterval = setInterval(() => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+          this.ws.ping()
+          this.ws.send(JSON.stringify({ type: 'ping' }))
+        } else {
+          clearInterval(pingInterval)
+        }
+      }, 20_000)
+
+      this.ws!.on('close', () => clearInterval(pingInterval))
     })
 
     this.ws.on('message', (data: Buffer) => {
