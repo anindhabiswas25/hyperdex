@@ -1,5 +1,8 @@
 <div align="center">
 
+<img width="2860" height="1565" alt="Screenshot from 2026-05-21 22-17-47" src="https://github.com/user-attachments/assets/3cc9a43a-c5c9-4d6e-a031-c14f86fc9c28" />
+
+
 <img src="https://img.shields.io/badge/Stellar-Soroban-7B2FBE?style=for-the-badge" />
 <img src="https://img.shields.io/badge/Rust-1.70%2B-red?style=for-the-badge" />
 <img src="https://img.shields.io/badge/Next.js-14-black?style=for-the-badge" />
