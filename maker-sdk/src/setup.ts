@@ -166,6 +166,19 @@ async function main() {
       `EURC_CONTRACT=${EURC_CONTRACT}`,
     ].join('\n');
 
+    if (fs.existsSync(credPath)) {
+      const { overwrite } = await prompts({
+        type: 'confirm',
+        name: 'overwrite',
+        message: 'Credential file already exists. Overwrite with a NEW keypair?\n  ⚠ This will break your on-chain registration until you update the signer key via /maker dashboard.',
+        initial: false,
+      }, { onCancel: () => { process.exit(1); } });
+      if (!overwrite) {
+        console.log(chalk.yellow('\n  Keeping existing credentials. Exiting.'));
+        process.exit(0);
+      }
+    }
+
     fs.writeFileSync(credPath, credContent, { mode: 0o600 });
 
     // ── STEP 5: Register signer key with backend ───────────────────────────────
