@@ -361,8 +361,24 @@ async function fetchPoolAddress(address: string): Promise<string | null> {
   // 9. Start live dashboard loop
   startDashboardLoop()
 
-  // 10. Start HTTP health server
-  httpServer = app.listen(PORT)
+  // 10. Start HTTP health server (auto-find available port)
+  const startHealthServer = (port: number, attempts = 0): void => {
+    const srv = app.listen(port)
+    srv.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE' && attempts < 5) {
+        startHealthServer(port + 1, attempts + 1)
+      } else {
+        console.warn(chalk.yellow(`  ⚠ Health server unavailable (ports ${PORT}–${port} all in use)`))
+      }
+    })
+    srv.on('listening', () => {
+      httpServer = srv
+      if (port !== PORT) {
+        console.log(chalk.gray(`  Health: http://localhost:${port}/health  (port ${PORT} was busy)`))
+      }
+    })
+  }
+  startHealthServer(PORT)
 
   // 11. Setup keypress handler (Ctrl+C / Ctrl+R)
   setupKeypressHandler()
