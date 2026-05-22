@@ -105,6 +105,7 @@ let POOL_ADDRESS_DISPLAY = process.env.POOL_ADDRESS || 'Not deployed'
 // ── Express app ───────────────────────────────────────────────────────────────
 
 const signer = new QuoteSigner(SIGNER_PRIVATE_KEY)
+console.log(chalk.gray('  Signer pubkey: ') + chalk.cyan(signer.getPublicKey()))
 const wsClient = new MakerWsClient(signer)
 const app = express()
 app.use(express.json())
@@ -203,6 +204,7 @@ function printLiveDashboard(): void {
   console.log(chalk.hex('#7c3aed')('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'))
   console.log(chalk.gray('  Maker:       ') + chalk.white(MAKER_NAME))
   console.log(chalk.gray('  Pool:        ') + chalk.cyan(poolShort))
+  console.log(chalk.gray('  Signer key:  ') + chalk.cyan(signer.getPublicKey().slice(0, 16) + '...'))
   console.log(chalk.hex('#7c3aed')('  ─────────────────────────────────────────'))
   console.log(chalk.gray('  Live rate:   ') + chalk.cyan(`1 USDC = ${midRate.toFixed(6)} EURC`))
   console.log(
