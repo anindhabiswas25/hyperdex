@@ -29,7 +29,6 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.0.0",
-    "@types/ora": "^5.1.0",
     "@types/prompts": "^2.4.9",
     "ts-node": "^10.9.2",
     "typescript": "^5.0.0"
