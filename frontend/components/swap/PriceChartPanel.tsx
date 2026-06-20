@@ -64,7 +64,7 @@ export default function PriceChartPanel() {
       .then(json => {
         if (cancelled) return;
         const raw: [number, number][] = json.prices ?? [];
-        setData(raw.map(([t, eurcUsd]) => ({ t, p: +(1 / eurcUsd).toFixed(5) })));
+        setData(raw.map(([t, eurcUsd]) => ({ t, p: 1 / eurcUsd })));
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -97,7 +97,7 @@ export default function PriceChartPanel() {
         .then(r => r.json())
         .then(json => {
           const raw: [number, number][] = json.prices ?? [];
-          if (raw.length) setData(raw.map(([t, eurcUsd]) => ({ t, p: +(1 / eurcUsd).toFixed(5) })));
+          if (raw.length) setData(raw.map(([t, eurcUsd]) => ({ t, p: 1 / eurcUsd })));
         })
         .catch(() => {});
     }, 60_000);
@@ -175,7 +175,7 @@ export default function PriceChartPanel() {
           </div>
         ) : (
           <div className="font-display text-6xl font-bold text-ink tabular-nums leading-none">
-            {displayPrice.toFixed(4)}
+            {displayPrice.toFixed(6)}
           </div>
         )}
 
@@ -282,13 +282,13 @@ export default function PriceChartPanel() {
           <Stat label="24H VOLUME" value={stats.vol24h ? fmt(stats.vol24h) : '—'} />
           <Stat
             label={`${periodLabel} LOW`}
-            value={low ? `$${low.toFixed(4)}` : '—'}
+            value={low ? `$${low.toFixed(6)}` : '—'}
             change={low ? `${lowPct >= 0 ? '+' : ''}${lowPct.toFixed(2)}%` : undefined}
             pos={lowPct >= 0}
           />
           <Stat
             label={`${periodLabel} HIGH`}
-            value={high ? `$${high.toFixed(4)}` : '—'}
+            value={high ? `$${high.toFixed(6)}` : '—'}
             change={high ? `${highPct >= 0 ? '+' : ''}${highPct.toFixed(2)}%` : undefined}
             pos={highPct >= 0}
           />
