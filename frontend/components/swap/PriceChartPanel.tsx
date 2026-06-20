@@ -44,10 +44,9 @@ function formatTooltip(ts: number, period: Period): string {
 
 const CG_CHART = '/api/coingecko/chart?days=';
 const CG_PRICE = '/api/coingecko/spot';
-const CG_SPOT  = '/api/coingecko/spot';
 
 export default function PriceChartPanel() {
-  const [period, setPeriod]     = useState<Period>('1D');
+  const [period, setPeriod]     = useState<Period>('LIVE');
   const [data, setData]         = useState<Pt[]>([]);
   const [loading, setLoading]   = useState(true);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -91,19 +90,17 @@ export default function PriceChartPanel() {
       .catch(() => {});
   }, []);
 
-  // ── Live polling: append a real tick every 30 s ────────────────
+  // ── Periodic refresh: re-fetch chart data every 60 s ────────────
   useEffect(() => {
-    if (period !== 'LIVE') return;
     const id = setInterval(() => {
-      fetch(CG_SPOT)
+      fetch(CG_CHART + PERIOD_DAYS[period])
         .then(r => r.json())
-        .then(d => {
-          const eurcUsd: number | undefined = d['euro-coin']?.usd;
-          if (!eurcUsd) return;
-          setData(prev => [...prev.slice(-500), { t: Date.now(), p: +(1 / eurcUsd).toFixed(5) }]);
+        .then(json => {
+          const raw: [number, number][] = json.prices ?? [];
+          if (raw.length) setData(raw.map(([t, eurcUsd]) => ({ t, p: +(1 / eurcUsd).toFixed(5) })));
         })
         .catch(() => {});
-    }, 30_000);
+    }, 60_000);
     return () => clearInterval(id);
   }, [period]);
 
