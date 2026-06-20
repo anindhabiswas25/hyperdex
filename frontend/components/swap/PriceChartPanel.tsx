@@ -6,26 +6,23 @@ type Pt = { t: number; p: number };
 type Period = 'LIVE' | '1D' | '1W' | '1M' | '1Y' | 'All';
 const PERIODS: Period[] = ['LIVE', '1D', '1W', '1M', '1Y', 'All'];
 
-const PERIOD_CFG: Record<Period, { count: number; vol: number; step: number }> = {
-  LIVE: { count: 120, vol: 0.00025, step: 2_000   },
-  '1D': { count: 288, vol: 0.00045, step: 300_000  },
-  '1W': { count: 168, vol: 0.00090, step: 3_600_000},
-  '1M': { count: 180, vol: 0.00180, step: 14_400_000},
-  '1Y': { count: 365, vol: 0.00280, step: 86_400_000},
-  All:  { count: 500, vol: 0.00380, step: 172_800_000},
+const PERIOD_DAYS: Record<Period, string> = {
+  LIVE: '1',
+  '1D': '1',
+  '1W': '7',
+  '1M': '30',
+  '1Y': '365',
+  All:  'max',
 };
 
-function gen(base: number, count: number, vol: number, step: number): Pt[] {
-  const now = Date.now();
-  let p = base + (Math.random() - 0.5) * 0.003;
-  const pts: Pt[] = [];
-  for (let i = count - 1; i >= 0; i--) {
-    p += (Math.random() - 0.5) * vol;
-    p = Math.max(base * 0.96, Math.min(base * 1.04, p));
-    pts.push({ t: now - i * step, p: +p.toFixed(5) });
-  }
-  return pts;
-}
+const PERIOD_LABEL: Record<Period, string> = {
+  LIVE: '24H',
+  '1D': '24H',
+  '1W': '7D',
+  '1M': '30D',
+  '1Y': '1Y',
+  All:  'ALL-TIME',
+};
 
 function fmt(n: number): string {
   if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
@@ -33,64 +30,91 @@ function fmt(n: number): string {
   return '$' + n.toFixed(2);
 }
 
+function formatTooltip(ts: number, period: Period): string {
+  const d = new Date(ts);
+  if (period === 'LIVE' || period === '1D')
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (period === '1W' || period === '1M') {
+    const date = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${date} ${time}`;
+  }
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' });
+}
+
+const CG_CHART = 'https://api.coingecko.com/api/v3/coins/euro-coin/market_chart?vs_currency=usd&days=';
+const CG_PRICE = 'https://api.coingecko.com/api/v3/simple/price?ids=euro-coin,usd-coin&vs_currencies=usd&include_24hr_vol=true&include_market_cap=true';
+const CG_SPOT  = 'https://api.coingecko.com/api/v3/simple/price?ids=euro-coin&vs_currencies=usd';
+
 export default function PriceChartPanel() {
-  const [period, setPeriod] = useState<Period>('LIVE');
-  const [basePrice, setBasePrice] = useState(0.8934);
-  const [data, setData] = useState<Pt[]>(() => gen(0.8934, 120, 0.00025, 2_000));
+  const [period, setPeriod]     = useState<Period>('1D');
+  const [data, setData]         = useState<Pt[]>([]);
+  const [loading, setLoading]   = useState(true);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const [stats, setStats] = useState({ vol24h: 142_500_000, mcap: 45_800_000_000, supply: '45.8B USDC' });
+  const [stats, setStats]       = useState({ vol24h: 0, mcap: 0, supply: '' });
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Fetch real EURC/USD from CoinGecko, derive USDC/EURC rate
+  // ── Fetch historical chart from CoinGecko ──────────────────────
   useEffect(() => {
-    fetch('https://api.coingecko.com/api/v3/simple/price?ids=euro-coin&vs_currencies=usd&include_24hr_vol=true&include_market_cap=true')
+    let cancelled = false;
+    setLoading(true);
+    setHoverIdx(null);
+
+    fetch(CG_CHART + PERIOD_DAYS[period])
+      .then(r => r.json())
+      .then(json => {
+        if (cancelled) return;
+        const raw: [number, number][] = json.prices ?? [];
+        setData(raw.map(([t, eurcUsd]) => ({ t, p: +(1 / eurcUsd).toFixed(5) })));
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [period]);
+
+  // ── Fetch stats once on mount ──────────────────────────────────
+  useEffect(() => {
+    fetch(CG_PRICE)
       .then(r => r.json())
       .then(d => {
-        const eurcUsd: number = d['euro-coin']?.usd ?? 1.12;
-        const base = +(1 / eurcUsd).toFixed(5);
-        setBasePrice(base);
+        const eurc = d['euro-coin'] ?? {};
+        const usdc = d['usd-coin'] ?? {};
         setStats({
-          vol24h: d['euro-coin']?.usd_24h_vol ?? 142_500_000,
-          mcap:   d['euro-coin']?.usd_market_cap ?? 712_000_000,
-          supply: '45.8B USDC',
+          vol24h: eurc.usd_24h_vol ?? 0,
+          mcap:   usdc.usd_market_cap ?? 0,
+          supply: usdc.usd_market_cap
+            ? `${(usdc.usd_market_cap / 1e9).toFixed(1)}B USDC`
+            : '',
         });
-        const { count, vol, step } = PERIOD_CFG['LIVE'];
-        setData(gen(base, count, vol, step));
       })
       .catch(() => {});
   }, []);
 
-  // Reset on period change
-  useEffect(() => {
-    const { count, vol, step } = PERIOD_CFG[period];
-    setData(gen(basePrice, count, vol, step));
-    setHoverIdx(null);
-  }, [period, basePrice]);
-
-  // Live tick
+  // ── Live polling: append a real tick every 30 s ────────────────
   useEffect(() => {
     if (period !== 'LIVE') return;
     const id = setInterval(() => {
-      setData(prev => {
-        const last = prev[prev.length - 1].p;
-        const next = Math.max(
-          basePrice * 0.96,
-          Math.min(basePrice * 1.04, last + (Math.random() - 0.5) * 0.00025)
-        );
-        return [...prev.slice(-239), { t: Date.now(), p: +next.toFixed(5) }];
-      });
-    }, 1000);
+      fetch(CG_SPOT)
+        .then(r => r.json())
+        .then(d => {
+          const eurcUsd: number | undefined = d['euro-coin']?.usd;
+          if (!eurcUsd) return;
+          setData(prev => [...prev.slice(-500), { t: Date.now(), p: +(1 / eurcUsd).toFixed(5) }]);
+        })
+        .catch(() => {});
+    }, 30_000);
     return () => clearInterval(id);
-  }, [period, basePrice]);
+  }, [period]);
 
-  // ── SVG Chart ────────────────────────────────────────────────────
+  // ── SVG chart geometry ─────────────────────────────────────────
   const W = 1000, H = 300;
   const PT = 20, PB = 28;
   const chartH = H - PT - PB;
 
   const prices = data.map(d => d.p);
-  const mn = Math.min(...prices);
-  const mx = Math.max(...prices);
+  const mn  = prices.length ? Math.min(...prices) : 0;
+  const mx  = prices.length ? Math.max(...prices) : 1;
   const rng = mx - mn || 0.0001;
 
   const sx = (i: number) => (i / Math.max(1, data.length - 1)) * W;
@@ -99,39 +123,39 @@ export default function PriceChartPanel() {
   const linePath = data
     .map((d, i) => `${i === 0 ? 'M' : 'L'} ${sx(i).toFixed(1)} ${sy(d.p).toFixed(1)}`)
     .join(' ');
-  const areaPath = `${linePath} L ${W} ${H} L 0 ${H} Z`;
+  const areaPath = data.length ? `${linePath} L ${W} ${H} L 0 ${H} Z` : '';
 
-  // Hover
+  // ── Hover ──────────────────────────────────────────────────────
   const onMove = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
       const rect = svgRef.current?.getBoundingClientRect();
-      if (!rect) return;
+      if (!rect || !data.length) return;
       const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       setHoverIdx(Math.round(frac * (data.length - 1)));
     },
-    [data.length]
+    [data.length],
   );
 
-  const hp = hoverIdx !== null ? data[hoverIdx] : null;
+  const hp = hoverIdx !== null ? data[hoverIdx] ?? null : null;
   const hx = hoverIdx !== null ? sx(hoverIdx) : null;
   const hy = hp ? sy(hp.p) : null;
-  const htLabel = hp
-    ? new Date(hp.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    : null;
+  const htLabel = hp ? formatTooltip(hp.t, period) : null;
 
-  const curr = data[data.length - 1]?.p ?? basePrice;
-  const open = data[0]?.p ?? basePrice;
-  const pctChange = ((curr - open) / open) * 100;
+  const curr = data.length ? data[data.length - 1].p : 0;
+  const open = data.length ? data[0].p : 0;
+  const pctChange = open ? ((curr - open) / open) * 100 : 0;
   const isUp = pctChange >= 0;
   const LINE = isUp ? '#16a34a' : '#dc2626';
   const displayPrice = hp?.p ?? curr;
 
-  const low  = Math.min(...prices);
-  const high = Math.max(...prices);
-  const lowPct  = ((low  - open) / open) * 100;
-  const highPct = ((high - open) / open) * 100;
+  const low  = prices.length ? Math.min(...prices) : 0;
+  const high = prices.length ? Math.max(...prices) : 0;
+  const lowPct  = open ? ((low  - open) / open) * 100 : 0;
+  const highPct = open ? ((high - open) / open) * 100 : 0;
 
-  const tooltipX = hx !== null ? Math.min(W - 84, Math.max(4, hx - 42)) : 0;
+  const tooltipW = (period === '1W' || period === '1M') ? 110 : 84;
+  const tooltipX = hx !== null ? Math.min(W - tooltipW, Math.max(4, hx - tooltipW / 2)) : 0;
+  const periodLabel = PERIOD_LABEL[period];
 
   return (
     <div>
@@ -148,13 +172,23 @@ export default function PriceChartPanel() {
           </span>
         </div>
 
-        <div className="font-display text-6xl font-bold text-ink tabular-nums leading-none">
-          {displayPrice.toFixed(4)}
-        </div>
+        {loading && !data.length ? (
+          <div className="font-display text-6xl font-bold text-ink/30 tabular-nums leading-none animate-pulse">
+            0.0000
+          </div>
+        ) : (
+          <div className="font-display text-6xl font-bold text-ink tabular-nums leading-none">
+            {displayPrice.toFixed(4)}
+          </div>
+        )}
 
         <div className={`flex items-center gap-2 mt-2 text-sm font-semibold ${isUp ? 'text-green-600' : 'text-red-500'}`}>
-          <span>{isUp ? '↑' : '↓'}{Math.abs(pctChange).toFixed(2)}%</span>
-          <span className="text-ink-muted font-normal text-xs">vs. period open</span>
+          {data.length > 0 && (
+            <>
+              <span>{isUp ? '↑' : '↓'}{Math.abs(pctChange).toFixed(2)}%</span>
+              <span className="text-ink-muted font-normal text-xs">vs. period open</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -163,59 +197,62 @@ export default function PriceChartPanel() {
         className="relative w-full select-none rounded-xl overflow-hidden"
         style={{ paddingBottom: '30%' }}
       >
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
-          className="absolute inset-0 w-full h-full"
-          onMouseMove={onMove}
-          onMouseLeave={() => setHoverIdx(null)}
-          style={{ cursor: 'crosshair' }}
-        >
-          <defs>
-            <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stopColor={LINE} stopOpacity="0.14" />
-              <stop offset="100%" stopColor={LINE} stopOpacity="0"    />
-            </linearGradient>
-          </defs>
+        {loading && !data.length ? (
+          <div className="absolute inset-0 flex items-center justify-center text-ink-muted text-sm">
+            Loading chart&hellip;
+          </div>
+        ) : (
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            className="absolute inset-0 w-full h-full"
+            onMouseMove={onMove}
+            onMouseLeave={() => setHoverIdx(null)}
+            style={{ cursor: 'crosshair' }}
+          >
+            <defs>
+              <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor={LINE} stopOpacity="0.14" />
+                <stop offset="100%" stopColor={LINE} stopOpacity="0"    />
+              </linearGradient>
+            </defs>
 
-          {/* Area */}
-          <path d={areaPath} fill="url(#cg)" />
-          {/* Line */}
-          <path d={linePath} fill="none" stroke={LINE} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Area */}
+            <path d={areaPath} fill="url(#cg)" />
+            {/* Line */}
+            <path d={linePath} fill="none" stroke={LINE} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
 
-          {/* Crosshair */}
-          {hx !== null && hy !== null && hoverIdx !== null && (
-            <>
-              {/* Time label pill */}
-              <rect x={tooltipX} y={1} width="84" height="18" rx="5" fill="rgba(17,17,24,0.72)" />
-              <text
-                x={tooltipX + 42}
-                y="13"
-                textAnchor="middle"
-                fontSize="10"
-                fill="white"
-                fontFamily="monospace"
-              >
-                {htLabel}
-              </text>
+            {/* Crosshair */}
+            {hx !== null && hy !== null && hoverIdx !== null && (
+              <>
+                <rect x={tooltipX} y={1} width={tooltipW} height="18" rx="5" fill="rgba(17,17,24,0.72)" />
+                <text
+                  x={tooltipX + tooltipW / 2}
+                  y="13"
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill="white"
+                  fontFamily="monospace"
+                >
+                  {htLabel}
+                </text>
 
-              {/* Vertical dashed line */}
-              <line
-                x1={hx} y1={PT}
-                x2={hx} y2={H - PB}
-                stroke="#111118"
-                strokeWidth="1"
-                strokeOpacity="0.18"
-                strokeDasharray="5 4"
-              />
+                <line
+                  x1={hx} y1={PT}
+                  x2={hx} y2={H - PB}
+                  stroke="#111118"
+                  strokeWidth="1"
+                  strokeOpacity="0.18"
+                  strokeDasharray="5 4"
+                />
 
-              {/* Dot */}
-              <circle cx={hx} cy={hy} r="10" fill={LINE} fillOpacity="0.15" />
-              <circle cx={hx} cy={hy} r="4.5" fill={LINE} />
-            </>
-          )}
-        </svg>
+                <circle cx={hx} cy={hy} r="10" fill={LINE} fillOpacity="0.15" />
+                <circle cx={hx} cy={hy} r="4.5" fill={LINE} />
+              </>
+            )}
+          </svg>
+        )}
       </div>
 
       {/* ── Period selector ────────────────────────────────────────── */}
@@ -245,22 +282,22 @@ export default function PriceChartPanel() {
           About USDC / EURC
         </h3>
         <div className="grid grid-cols-3 gap-x-6 gap-y-7">
-          <Stat label="24H VOLUME"         value={fmt(stats.vol24h)} />
+          <Stat label="24H VOLUME" value={stats.vol24h ? fmt(stats.vol24h) : '—'} />
           <Stat
-            label="1-HOUR LOW"
-            value={`$${low.toFixed(4)}`}
-            change={`${lowPct >= 0 ? '+' : ''}${lowPct.toFixed(2)}%`}
+            label={`${periodLabel} LOW`}
+            value={low ? `$${low.toFixed(4)}` : '—'}
+            change={low ? `${lowPct >= 0 ? '+' : ''}${lowPct.toFixed(2)}%` : undefined}
             pos={lowPct >= 0}
           />
           <Stat
-            label="1-HOUR HIGH"
-            value={`$${high.toFixed(4)}`}
-            change={`${highPct >= 0 ? '+' : ''}${highPct.toFixed(2)}%`}
+            label={`${periodLabel} HIGH`}
+            value={high ? `$${high.toFixed(4)}` : '—'}
+            change={high ? `${highPct >= 0 ? '+' : ''}${highPct.toFixed(2)}%` : undefined}
             pos={highPct >= 0}
           />
-          <Stat label="MARKET CAP"         value={fmt(stats.mcap)} />
-          <Stat label="FDV"                value={fmt(stats.mcap)} />
-          <Stat label="CIRCULATING SUPPLY" value={stats.supply} />
+          <Stat label="MARKET CAP" value={stats.mcap ? fmt(stats.mcap) : '—'} />
+          <Stat label="FDV"        value={stats.mcap ? fmt(stats.mcap) : '—'} />
+          <Stat label="CIRCULATING SUPPLY" value={stats.supply || '—'} />
         </div>
       </div>
     </div>
