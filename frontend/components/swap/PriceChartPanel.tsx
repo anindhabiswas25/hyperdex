@@ -42,9 +42,9 @@ function formatTooltip(ts: number, period: Period): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' });
 }
 
-const CG_CHART = 'https://api.coingecko.com/api/v3/coins/euro-coin/market_chart?vs_currency=usd&days=';
-const CG_PRICE = 'https://api.coingecko.com/api/v3/simple/price?ids=euro-coin,usd-coin&vs_currencies=usd&include_24hr_vol=true&include_market_cap=true';
-const CG_SPOT  = 'https://api.coingecko.com/api/v3/simple/price?ids=euro-coin&vs_currencies=usd';
+const CG_CHART = '/api/coingecko/chart?days=';
+const CG_PRICE = '/api/coingecko/spot';
+const CG_SPOT  = '/api/coingecko/spot';
 
 export default function PriceChartPanel() {
   const [period, setPeriod]     = useState<Period>('1D');
