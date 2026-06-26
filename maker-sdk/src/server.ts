@@ -9,14 +9,24 @@ import { QuoteSigner } from './signer'
 import { MakerWsClient } from './ws-client'
 import { priceOracle } from './oracle'
 import { inventoryChecker } from './inventory-checker'
-import { buildPriceLevels } from './price-levels'
 import { GHOST_PRICE_USDC_TO_EURC, setGhostPrice } from './ghost-price'
+import { getDriftStatus } from './drift-guard'
+import { MakerEngine } from './types/MakerEngine'
+import { createDefaultEngine } from './engines/default-engine'
 
 // ── Load credentials ──────────────────────────────────────────────────────────
 
 require('dotenv').config()
 
-const credentialName = process.argv[2]
+// First positional arg is the credential name — but ignore it if it's actually
+// a flag (e.g. `npm run dev --engine=./x.ts` with no credential name).
+const firstArg = process.argv[2]
+const credentialName = firstArg && !firstArg.startsWith('--') ? firstArg : undefined
+
+// ── Custom engine flag ──────────────────────────────────────────────────────────
+
+const engineFlag = process.argv.find(a => a.startsWith('--engine='))
+const enginePath = engineFlag ? engineFlag.replace('--engine=', '') : null
 
 if (credentialName) {
   const credPath = path.join(__dirname, '../credentials', `${credentialName}.cred`)
@@ -106,7 +116,12 @@ let POOL_ADDRESS_DISPLAY = process.env.POOL_ADDRESS || 'Not deployed'
 
 const signer = new QuoteSigner(SIGNER_PRIVATE_KEY)
 console.log(chalk.gray('  Signer pubkey: ') + chalk.cyan(signer.getPublicKey()))
-const wsClient = new MakerWsClient(signer)
+
+// The engine (default or custom) and the WS client that drives it are created
+// in main() once the engine has been (asynchronously) loaded.
+let makerEngine: MakerEngine
+let wsClient: MakerWsClient
+
 const app = express()
 app.use(express.json())
 let httpServer: ReturnType<typeof app.listen> | null = null
@@ -207,11 +222,32 @@ function printLiveDashboard(): void {
   console.log(chalk.gray('  Signer key:  ') + chalk.cyan(signer.getPublicKey().slice(0, 16) + '...'))
   console.log(chalk.hex('#7c3aed')('  ─────────────────────────────────────────'))
   console.log(chalk.gray('  Live rate:   ') + chalk.cyan(`1 USDC = ${midRate.toFixed(6)} EURC`))
-  console.log(
-    chalk.gray('  Ghost price: ') +
-    chalk.yellow(`1 USDC = ${GHOST_PRICE_USDC_TO_EURC.toFixed(6)} EURC`) +
-    chalk.gray(' ← your bid rate')
-  )
+  if (enginePath) {
+    console.log(
+      chalk.gray('  Engine:      ') +
+      chalk.cyan(path.basename(enginePath) + ' [custom]') +
+      chalk.gray(' ← drives its own pricing')
+    )
+  } else {
+    console.log(
+      chalk.gray('  Ghost price: ') +
+      chalk.yellow(`1 USDC = ${GHOST_PRICE_USDC_TO_EURC.toFixed(6)} EURC`) +
+      chalk.gray(' ← your bid rate')
+    )
+    // Drift guard: warn / pause as the market moves away from the ghost price.
+    const drift = getDriftStatus(GHOST_PRICE_USDC_TO_EURC, midRate)
+    if (drift.level === 'pause') {
+      console.log(
+        chalk.red.bold(`  ⚠ QUOTING PAUSED — ghost price ${drift.absPct.toFixed(1)}% `) +
+        chalk.red(`${drift.belowMarket ? 'below' : 'above'} market (>3%). Press Ctrl+R to re-price.`)
+      )
+    } else if (drift.level === 'warn') {
+      console.log(
+        chalk.yellow(`  ⚠ WARNING — ghost price ${drift.absPct.toFixed(1)}% `) +
+        chalk.yellow(`${drift.belowMarket ? 'below' : 'above'} market. Traders may arbitrage you.`)
+      )
+    }
+  }
   console.log(chalk.gray('  Volatility:  ') + chalk.white((volatility * 100).toFixed(3) + '%'))
   console.log(chalk.hex('#7c3aed')('  ─────────────────────────────────────────'))
   console.log(chalk.gray('  Pool USDC:   ') + chalk.white(balance.usdc.toFixed(4)))
@@ -261,6 +297,7 @@ function setupKeypressHandler(): void {
     }
 
     if (key.ctrl && key.name === 'r') {
+      if (enginePath) return  // custom engine: no ghost price to update
       stopDashboardLoop()
       console.log()
       console.log(chalk.yellow('  Updating ghost price...'))
@@ -294,9 +331,50 @@ async function fetchPoolAddress(address: string): Promise<string | null> {
   }
 }
 
+// ── Engine loader ────────────────────────────────────────────────────────────
+
+async function loadEngine(): Promise<MakerEngine> {
+  if (enginePath) {
+    try {
+      // Resolve relative to where the user ran the command.
+      const fullPath = path.resolve(process.cwd(), enginePath)
+      console.log(chalk.cyan(`  Loading custom engine: ${fullPath}`))
+
+      const mod = await import(fullPath)
+      const exported = mod.default ?? mod.engine
+      // Allow either a ready MakerEngine object or a factory function.
+      const engine: MakerEngine = typeof exported === 'function' ? exported() : exported
+
+      if (!engine) {
+        throw new Error('Engine file must export a default MakerEngine object (or factory)')
+      }
+      if (typeof engine.getLevels !== 'function') {
+        throw new Error('Engine must have a getLevels() function')
+      }
+      if (typeof engine.getQuote !== 'function') {
+        throw new Error('Engine must have a getQuote() function')
+      }
+
+      console.log(chalk.green('  ✓ Custom engine loaded successfully'))
+      return engine
+    } catch (err: any) {
+      console.error(chalk.red(`  ✗ Failed to load engine: ${err.message}`))
+      console.log(chalk.yellow('  Falling back to built-in default engine...'))
+      return createDefaultEngine()
+    }
+  }
+
+  // No custom engine — use the built-in ghost-price engine.
+  return createDefaultEngine()
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 ;(async () => {
+  // 0. Load the pricing engine (default ghost-price, or custom via --engine)
+  makerEngine = await loadEngine()
+  wsClient = new MakerWsClient(signer, makerEngine)
+
   // 1. Start oracle (fetches initial rates)
   await priceOracle.start()
 
@@ -328,22 +406,31 @@ async function fetchPoolAddress(address: string): Promise<string | null> {
     : chalk.yellow('NOT DEPLOYED — visit /maker')
   ))
   console.log(chalk.gray('  Backend: ') + chalk.cyan(BACKEND_WS_URL))
+  console.log(
+    chalk.gray('  Engine:  ') +
+    (enginePath
+      ? chalk.cyan(path.basename(enginePath) + ' [custom]')
+      : chalk.gray('Built-in (ghost-price)'))
+  )
   console.log(chalk.hex('#7c3aed')('  ─────────────────────────────────────────'))
 
-  // 5. Prompt for ghost price (or use GHOST_PRICE env var for non-interactive mode)
-  let ghostPrice: number
-  if (process.env.GHOST_PRICE) {
-    ghostPrice = parseFloat(process.env.GHOST_PRICE)
+  // 5. Ghost price only applies to the built-in default engine. Custom engines
+  //    own their full pricing logic, so skip the prompt entirely for them.
+  if (enginePath) {
+    console.log(chalk.gray('  Custom engine handles pricing — skipping ghost-price setup.'))
+    console.log()
+  } else if (process.env.GHOST_PRICE) {
+    const ghostPrice = parseFloat(process.env.GHOST_PRICE)
     if (isNaN(ghostPrice) || ghostPrice <= 0) {
       console.error(chalk.red('  ✗ Invalid GHOST_PRICE env var — must be a positive number'))
       process.exit(1)
     }
     console.log(chalk.green('  ✓ Ghost price loaded from env: ') + chalk.white.bold(`1 USDC = ${ghostPrice.toFixed(6)} EURC`))
     console.log()
+    setGhostPrice(ghostPrice)
   } else {
-    ghostPrice = await promptGhostPrice()
+    setGhostPrice(await promptGhostPrice())
   }
-  setGhostPrice(ghostPrice)
 
   // 6. Print live dashboard
   printLiveDashboard()
@@ -351,12 +438,20 @@ async function fetchPoolAddress(address: string): Promise<string | null> {
   // 7. Connect to backend WebSocket
   wsClient.start()
 
-  // 8. Start price level streaming (every 3 seconds)
+  // 8. Start price level streaming (every 3 seconds) — driven by the engine
   setInterval(async () => {
-    if (USDC_CONTRACT && EURC_CONTRACT && GHOST_PRICE_USDC_TO_EURC > 0) {
-      const balance = await inventoryChecker.getBalance()
-      const levels = buildPriceLevels(USDC_CONTRACT, EURC_CONTRACT, balance)
-      wsClient.sendPriceLevels(levels)
+    try {
+      // Keep inventory cache warm so getLevels()/getQuote() read fresh balances.
+      await inventoryChecker.getBalance()
+      const levels = await makerEngine.getLevels()
+      wsClient.sendPriceLevels({
+        tokenIn:    USDC_CONTRACT,
+        tokenOut:   EURC_CONTRACT,
+        sellLevels: levels.sellLevels,
+        buyLevels:  levels.buyLevels,
+      })
+    } catch (err: any) {
+      console.error('[Levels] Engine error:', err?.message ?? err)
     }
   }, 3000)
 

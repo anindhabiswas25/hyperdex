@@ -20,8 +20,10 @@ Cargo.lock
 .env.test.local
 .env.production.local
 
-# Credentials — never commit
+# Credentials — never commit (any depth, e.g. maker-sdk/credentials/)
 credentials/*.cred
+**/credentials/
+*.cred
 
 # Logs
 *.log

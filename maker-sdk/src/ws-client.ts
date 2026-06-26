@@ -2,11 +2,11 @@ import WebSocket from 'ws'
 import crypto from 'crypto'
 import chalk from 'chalk'
 import { QuoteSigner } from './signer'
-import { makePricingDecision, formatAmount, getTokenSymbol, RfqContext } from './example-pricer'
-import { priceOracle } from './oracle'
+import { getTokenSymbol } from './example-pricer'
 import { inventoryChecker } from './inventory-checker'
 import { rateLimiter } from './rate-limiter'
 import { PriceLevelMessage } from './price-levels'
+import { MakerEngine, RfqContext } from './types/MakerEngine'
 
 interface RfqPayload {
   rfqId: string
@@ -35,12 +35,14 @@ interface TradeNotification {
 
 export class MakerWsClient {
   private signer: QuoteSigner
+  private engine: MakerEngine
   private ws: WebSocket | null = null
   private reconnectDelay = 1000
   private stopping = false
 
-  constructor(signer: QuoteSigner) {
+  constructor(signer: QuoteSigner, engine: MakerEngine) {
     this.signer = signer
+    this.engine = engine
   }
 
   start(): void {
@@ -167,6 +169,20 @@ export class MakerWsClient {
     const amountOut   = (Number(trade.amountOut) / 1e7).toFixed(4)
     const txShort     = trade.txHash ? trade.txHash.slice(0, 8) + '...' : 'pending'
 
+    // Notify the engine (default engine invalidates inventory; custom engines
+    // may hedge, rebalance, etc.)
+    if (this.engine.onTradeConfirmed) {
+      this.engine.onTradeConfirmed({
+        quoteId:     trade.quoteId,
+        amountIn:    trade.amountIn,
+        amountOut:   trade.amountOut,
+        tokenIn:     trade.tokenIn,
+        tokenOut:    trade.tokenOut,
+        txHash:      trade.txHash ?? '',
+        confirmedAt: trade.confirmedAt ?? '',
+      }).catch(err => console.error('[Trade] Engine callback error:', err?.message ?? err))
+    }
+
     // Refresh inventory cache after trade
     inventoryChecker.invalidateCache()
     inventoryChecker.getBalance().then(balance => {
@@ -221,40 +237,34 @@ export class MakerWsClient {
         return
       }
 
-      const midRate = priceOracle.getMidRate()
-      const volatility = priceOracle.getVolatility()
-      const vaultBalance = await inventoryChecker.getBalance()
-
+      // Build the engine context and let the engine (default or custom) decide.
       const ctx: RfqContext = {
-        rfqId: rfq.rfqId,
-        takerAddress: rfq.takerAddress,
-        tokenIn: rfq.tokenIn,
-        tokenOut: rfq.tokenOut,
-        amountIn: rfq.amountIn,
-        feesBps: rfq.feesBps ?? 10,
-        requestedAt: rfq.requestedAt,
-        midRate,
-        volatility,
-        vaultBalance,
+        rfqId:          rfq.rfqId,
+        takerAddress:   rfq.takerAddress,
+        tokenIn:        rfq.tokenIn,
+        tokenOut:       rfq.tokenOut,
+        tokenInSymbol:  getTokenSymbol(rfq.tokenIn),
+        tokenOutSymbol: getTokenSymbol(rfq.tokenOut),
+        amountIn:       rfq.amountIn,
+        amountInHuman:  Number(rfq.amountIn) / 1e7,
+        feesBps:        rfq.feesBps ?? 10,
+        requestedAt:    rfq.requestedAt,
       }
 
-      const decision = await makePricingDecision(ctx)
+      const amountOut = await this.engine.getQuote(ctx)
 
-      if (!decision.shouldQuote) {
-        const errorMsg: Record<string, unknown> = {
+      if (!amountOut) {
+        // Engine returned null = do not participate (no penalty).
+        this.ws?.send(JSON.stringify({
           type: 'rfqError',
           message: {
             rfqId: rfq.rfqId,
-            reason: decision.reason || 'market_conditions',
+            reason: 'market_conditions',
           },
-        }
-        if (decision.reason === 'rate_limit' && decision.expiryTimestampMs) {
-          (errorMsg.message as Record<string, unknown>).expiryTimestampMs = decision.expiryTimestampMs
-        }
-        this.ws?.send(JSON.stringify(errorMsg))
+        }))
         console.log(
           `[RFQ] Skipped   rfqId=${rfq.rfqId.slice(0, 8)}...` +
-          `  reason=${decision.reason}  latency=${Date.now() - startTime}ms`
+          `  reason=engine_declined  latency=${Date.now() - startTime}ms`
         )
         return
       }
@@ -272,7 +282,7 @@ export class MakerWsClient {
         token_in: rfq.tokenIn,
         token_out: rfq.tokenOut,
         amount_in: rfq.amountIn,
-        amount_out: decision.amountOut!,
+        amount_out: amountOut,
         expiry,
         salt,
       }
@@ -289,21 +299,22 @@ export class MakerWsClient {
           tokenIn: rfq.tokenIn,
           tokenOut: rfq.tokenOut,
           amountIn: rfq.amountIn,
-          amountOut: decision.amountOut!,
+          amountOut,
           expiryTimestamp: expiry,
           salt,
           signature,
-          spreadBps: decision.spread,
         },
       }))
 
       const latency = Date.now() - startTime
       const amountInHuman  = (Number(rfq.amountIn) / 1e7).toFixed(4)
-      const amountOutHuman = (Number(decision.amountOut!) / 1e7).toFixed(4)
-      const ghostRate      = decision.ghostRate?.toFixed(6) ?? '?'
+      const amountOutHuman = (Number(amountOut) / 1e7).toFixed(4)
+      const impliedRate    = Number(rfq.amountIn) > 0
+        ? (Number(amountOut) / Number(rfq.amountIn)).toFixed(6)
+        : '?'
 
       console.log(
-        chalk.white(`\n[RFQ] Auto-bid  `) + chalk.gray(`rfqId=${rfq.rfqId.slice(0, 8)}...`)
+        chalk.white(`\n[RFQ] Quoted    `) + chalk.gray(`rfqId=${rfq.rfqId.slice(0, 8)}...`)
       )
       console.log(
         chalk.gray('      ') +
@@ -312,8 +323,8 @@ export class MakerWsClient {
         chalk.green(`${amountOutHuman} ${getTokenSymbol(rfq.tokenOut)}`)
       )
       console.log(
-        chalk.gray(`      Ghost rate: `) +
-        chalk.yellow(ghostRate) +
+        chalk.gray(`      Rate: `) +
+        chalk.yellow(impliedRate) +
         chalk.gray(` | Fee: ${rfq.feesBps ?? 10}bps`)
       )
       console.log(chalk.gray(`      Latency: ${latency}ms`))
