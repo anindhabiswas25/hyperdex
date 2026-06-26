@@ -43,11 +43,11 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         getNetworkDetails,
       } = await import('@stellar/freighter-api');
 
-      // Detect if Freighter is installed
+      // Detect if Freighter is installed (v6 returns { isConnected })
       let installed = false;
       try {
-        await freighterIsConnected();
-        installed = true;
+        const res = await freighterIsConnected();
+        installed = res.isConnected === true;
       } catch {
         installed = false;
       }
@@ -60,11 +60,13 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       // Request permission — opens Freighter popup
       await setAllowed();
 
-      // Use getPublicKey (more reliable than getAddress in v1.7.1)
-      const { getPublicKey } = await import('@stellar/freighter-api');
+      // Get the connected account address (freighter-api v6)
+      const { getAddress } = await import('@stellar/freighter-api');
       let address: string;
       try {
-        address = await getPublicKey();
+        const res = await getAddress();
+        if (res.error || !res.address) throw new Error('user_cancelled');
+        address = res.address;
       } catch (e: unknown) {
         // User cancelled
         set({ isConnecting: false });
@@ -159,12 +161,13 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   restoreSession: async () => {
     if (typeof window === 'undefined') return;
     try {
-      const { isAllowed, getPublicKey, getNetworkDetails } = await import('@stellar/freighter-api');
+      const { isAllowed, getAddress, getNetworkDetails } = await import('@stellar/freighter-api');
       const allowed = await isAllowed();
-      if (!allowed) return;
+      if (!allowed.isAllowed) return;
 
-      const address = await getPublicKey();
-      if (!address) return;
+      const res = await getAddress();
+      if (res.error || !res.address) return;
+      const address = res.address;
 
       // Network check
       try {
