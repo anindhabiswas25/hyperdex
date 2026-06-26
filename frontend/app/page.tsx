@@ -64,7 +64,6 @@ const tickerData = [
 ];
 
 /* ── Partner logos (text) ────────────────────────────────────── */
-const partners = ['Stellar', 'Circle', 'Soroban', 'Freighter', 'CoinGecko'];
 
 /* ── Main page ───────────────────────────────────────────────── */
 export default function HomePage() {
@@ -93,13 +92,13 @@ export default function HomePage() {
 
             {/* Centered text */}
             <div className="relative z-10 flex flex-col items-center justify-center text-center px-6 pt-24 pb-20 min-h-[520px]">
-              <h1 className="font-serif text-5xl md:text-7xl font-bold text-white leading-tight mb-8">
+              <h1 className="font-display text-5xl md:text-7xl font-bold text-white leading-tight mb-8">
                 Trade Without<br />Limits
               </h1>
 
               <Link
                 href="/swap"
-                className="inline-block bg-white text-navy text-sm font-semibold px-8 py-3.5 rounded-full hover:bg-white/90 transition-colors mb-14"
+                className="inline-block bg-white text-navy text-sm font-semibold px-8 py-3.5 rounded-full hover:bg-white/90 transition-colors mb-6 mt-4"
               >
                 Launch App
               </Link>
@@ -134,7 +133,7 @@ export default function HomePage() {
       <section className="py-24 px-4 md:px-8 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
           <div className="reveal">
-            <h2 className="font-serif text-5xl md:text-6xl font-bold text-ink leading-tight mb-6">
+            <h2 className="font-display text-5xl md:text-6xl font-bold text-ink leading-tight mb-6">
               What is<br />HyperDex?
             </h2>
             <Link
@@ -157,138 +156,145 @@ export default function HomePage() {
 
       {/* ── FEATURE CARDS ─────────────────────────────────────── */}
       <section className="pb-20 px-4 md:px-8">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="reveal rounded-2xl border border-black/20 overflow-hidden flex flex-col md:flex-row">
 
-          {/* Card 1 — light lavender */}
-          <div className="reveal relative rounded-2xl overflow-hidden p-7 flex flex-col justify-between min-h-[320px]"
-            style={{ background: 'linear-gradient(145deg, #E2DCF8 0%, #D0CAEF 100%)' }}>
-            <div>
-              <h3 className="text-navy text-xl font-bold leading-snug mb-auto">Capital that<br />compounds</h3>
-            </div>
-            {/* Decorative coin */}
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-50">
-              <CoinSvg size={140} />
-            </div>
-            <p className="text-navy/60 text-sm leading-relaxed mt-auto relative z-10">
-              Earn on every trade through our maker rewards programme. Provide liquidity
-              and collect competitive spreads on each settled auction.
-            </p>
-          </div>
+            {[
+              {
+                title: 'Capital that compounds.',
+                tag: 'LIQUIDITY REWARDS',
+                desc: 'Earn on every trade through our maker rewards programme. Provide liquidity and collect competitive spreads on each settled auction.',
+              },
+              {
+                title: 'Always liquid, always settled.',
+                tag: 'STELLAR SETTLEMENT',
+                desc: 'Trades settle directly on Stellar — no pool imbalances, no lockups. Funds are yours the moment the ledger closes (~5s).',
+              },
+              {
+                title: '100% non-custodial.',
+                tag: 'SELF CUSTODY',
+                desc: 'Your keys never leave Freighter. Smart contracts enforce every trade atomically — no trust required, no withdrawal delays.',
+              },
+            ].map((card, i) => (
+              <div
+                key={card.tag}
+                className="group relative flex-1 p-9 flex flex-col justify-between min-h-[340px] cursor-default transition-all duration-300 hover:-translate-y-2"
+                style={{ borderRight: i < 2 ? '1px solid rgba(0,0,0,0.20)' : 'none' }}
+              >
+                {/* Hover background — soft lavender */}
+                <div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{ background: 'linear-gradient(135deg, #C8C3EE 0%, #D2CDEF 60%, #BEB9E8 100%)' }}
+                />
 
-          {/* Card 2 — dark navy */}
-          <div className="reveal delay-1 rounded-2xl bg-navy p-7 flex flex-col justify-between min-h-[320px]">
-            <h3 className="text-white text-xl font-bold leading-snug">Always liquid,<br />always settled</h3>
-            <p className="text-white/50 text-sm leading-relaxed mt-auto">
-              Trades settle directly on Stellar — no pool imbalances, no lockups.
-              Funds are yours the moment the ledger closes (~5s).
-            </p>
-          </div>
+                {/* Headline */}
+                <h3 className="relative z-10 text-ink text-3xl font-bold leading-tight">
+                  {card.title}
+                </h3>
 
-          {/* Card 3 — dark navy */}
-          <div className="reveal delay-2 rounded-2xl bg-navy p-7 flex flex-col justify-between min-h-[320px]">
-            <h3 className="text-white text-xl font-bold leading-snug">100%<br />non-custodial</h3>
-            <p className="text-white/50 text-sm leading-relaxed mt-auto">
-              Your keys never leave Freighter. Smart contracts enforce every trade
-              atomically — no trust required, no withdrawal delays.
-            </p>
+                {/* Tag + description */}
+                <div className="relative z-10 mt-auto pt-10">
+                  <p className="text-xs font-bold uppercase tracking-widest text-ink-muted mb-3">
+                    {card.tag}
+                  </p>
+                  <p className="text-sm text-ink-muted leading-relaxed">
+                    {card.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
+
           </div>
         </div>
       </section>
 
-      {/* ── PARTNERS ──────────────────────────────────────────── */}
-      <section className="py-14 px-4 md:px-8 border-t border-black/6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-10 md:gap-16">
-          <p className="text-ink-muted text-sm leading-tight max-w-[160px] shrink-0">
-            Built on proven<br />infrastructure.
-          </p>
-          <div className="flex flex-wrap items-center gap-8 md:gap-12">
-            {partners.map(p => (
-              <span key={p} className="text-ink-muted font-semibold text-sm tracking-wide hover:text-ink transition-colors cursor-default">
-                {p}
-              </span>
+
+      {/* ── USE CASES ─────────────────────────────────────────── */}
+      <section className="py-16 px-4 md:px-8">
+        <div className="max-w-7xl mx-auto">
+
+          {/* Header row — Use cases left, Ecosystem right */}
+          <div className="reveal flex flex-col md:flex-row md:items-start justify-between gap-8 mb-10">
+
+            {/* Left */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted mb-3">
+                HyperDex in Action
+              </p>
+              <h2 className="font-display text-5xl md:text-6xl font-bold text-ink leading-tight">
+                Use cases
+              </h2>
+            </div>
+
+            {/* Right — Ecosystem */}
+            <div className="flex flex-col items-start">
+              <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted mb-3">
+                Ecosystem
+              </p>
+              <div className="flex items-center gap-6 -ml-3">
+                <img src="/logo-stellar.png" alt="Stellar" className="object-contain" style={{ height: '108px', width: '108px', filter: 'brightness(0)' }} />
+                <img src="/logo-usdc.png"     alt="USDC"    className="h-14 w-14 object-contain" />
+                <img src="/logo-eurc.png"     alt="EURC"    className="h-14 w-14 object-contain" />
+              </div>
+            </div>
+
+          </div>
+
+          <div className="reveal rounded-2xl border border-black/20 overflow-hidden flex flex-col md:flex-row">
+            {[
+              {
+                title: 'Market Makers.',
+                tag: 'MAKER PROGRAMME',
+                desc: 'Integrate our Maker SDK to participate in sealed-bid RFQ auctions. Earn spreads on every filled trade with full inventory control and automated quote management.',
+              },
+              {
+                title: 'Traders.',
+                tag: 'ZERO SLIPPAGE',
+                desc: 'Get the best available price from competing market makers in a 30-second sealed-bid auction. Zero slippage, guaranteed execution on Stellar.',
+              },
+              {
+                title: 'Institutions.',
+                tag: 'BLOCK TRADES',
+                desc: 'Execute large block trades with certainty. Our RFQ protocol delivers institutional-grade fills with cryptographic settlement on Stellar.',
+              },
+            ].map((card, i) => (
+              <div
+                key={card.tag}
+                className="group relative flex-1 p-9 flex flex-col justify-between min-h-[340px] cursor-default transition-all duration-300 hover:-translate-y-2"
+                style={{ borderRight: i < 2 ? '1px solid rgba(0,0,0,0.20)' : 'none' }}
+              >
+                {/* Hover background */}
+                <div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{ background: 'linear-gradient(135deg, #C8C3EE 0%, #D2CDEF 60%, #BEB9E8 100%)' }}
+                />
+
+                <h3 className="relative z-10 text-ink text-3xl font-bold leading-tight">
+                  {card.title}
+                </h3>
+
+                <div className="relative z-10 mt-auto pt-10">
+                  <p className="text-xs font-bold uppercase tracking-widest text-ink-muted mb-3">
+                    {card.tag}
+                  </p>
+                  <p className="text-sm text-ink-muted leading-relaxed">
+                    {card.desc}
+                  </p>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── USE CASES ─────────────────────────────────────────── */}
-      <section className="py-20 px-4 md:px-8">
-        <div className="max-w-7xl mx-auto">
-          <p className="reveal text-xs font-semibold uppercase tracking-widest text-ink-muted mb-3">
-            HyperDex in Action
-          </p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            {/* Left */}
-            <div>
-              <h2 className="reveal font-serif text-5xl md:text-6xl font-bold text-ink leading-tight mb-5">
-                Use cases
-              </h2>
-              <p className="reveal delay-1 text-ink-muted text-base leading-relaxed max-w-sm">
-                HyperDex serves traders, professional market makers, and institutions
-                seeking deep on-chain liquidity with guaranteed execution.
-              </p>
-            </div>
-
-            {/* Right — large dark card */}
-            <div className="reveal delay-2 rounded-2xl bg-navy p-8 md:p-10 min-h-[340px] flex flex-col justify-between relative overflow-hidden">
-              {/* Decorative coin behind */}
-              <div className="absolute right-6 bottom-6 opacity-20">
-                <CoinSvg size={200} />
-              </div>
-
-              <div className="relative z-10">
-                <h3 className="text-white text-3xl font-bold mb-4">Market Makers</h3>
-                <p className="text-white/55 text-sm leading-relaxed max-w-xs">
-                  Integrate our Maker SDK to participate in sealed-bid RFQ auctions.
-                  Earn spreads on every filled trade with full inventory control and
-                  automated quote management.
-                </p>
-              </div>
-
-              <Link
-                href="/maker"
-                className="relative z-10 inline-flex items-center gap-2 text-white/60 hover:text-white text-sm font-semibold transition-colors mt-8"
-              >
-                <span>→</span> Become a Maker
-              </Link>
-            </div>
-          </div>
-
-          {/* Second row of use-case cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            {/* Traders card */}
-            <div className="reveal delay-1 rounded-2xl border border-black/8 bg-white p-8 min-h-[200px] flex flex-col justify-between">
-              <h3 className="text-ink text-2xl font-bold">Traders</h3>
-              <p className="text-ink-muted text-sm leading-relaxed mt-4">
-                Get the best available price from competing market makers in a 30-second
-                sealed-bid auction. Zero slippage, guaranteed execution.
-              </p>
-              <Link href="/swap" className="inline-flex items-center gap-2 text-ink-muted hover:text-ink text-sm font-semibold transition-colors mt-6">
-                <span>→</span> Start trading
-              </Link>
-            </div>
-
-            {/* Institutions card */}
-            <div className="reveal delay-2 rounded-2xl border border-black/8 bg-white p-8 min-h-[200px] flex flex-col justify-between">
-              <h3 className="text-ink text-2xl font-bold">Institutions</h3>
-              <p className="text-ink-muted text-sm leading-relaxed mt-4">
-                Execute large block trades with certainty. Our RFQ protocol delivers
-                institutional-grade fills with cryptographic settlement on Stellar.
-              </p>
-              <Link href="/swap" className="inline-flex items-center gap-2 text-ink-muted hover:text-ink text-sm font-semibold transition-colors mt-6">
-                <span>→</span> Learn more
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ── HOW IT WORKS ──────────────────────────────────────── */}
-      <section className="py-20 px-4 md:px-8 bg-cream-dark border-y border-black/5">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          <div className="reveal">
+      <section className="px-4 md:px-10">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row">
+
+          {/* Left — heading */}
+          <div className="reveal lg:w-1/2 py-20 lg:pr-16">
             <p className="text-xs font-semibold uppercase tracking-widest text-ink-muted mb-3">Protocol</p>
-            <h2 className="font-serif text-5xl font-bold text-ink leading-tight mb-5">
+            <h2 className="font-display text-5xl font-bold text-ink leading-tight mb-5">
               How HyperDex<br />works
             </h2>
             <p className="text-ink-muted leading-relaxed max-w-sm">
@@ -297,109 +303,163 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="relative">
-            <div className="absolute left-5 top-6 bottom-6 w-px bg-black/8" />
+          {/* Vertical divider — connects down to the bottom border */}
+          <div className="hidden lg:block w-px bg-black/10 my-24" />
+
+          {/* Right — steps (no numbering) */}
+          <div className="lg:w-1/2 py-20 lg:pl-16 flex flex-col gap-10">
             {[
               {
-                n: '1',
                 title: 'Connect Wallet',
                 desc: 'Link your Freighter wallet. HyperDex reads your public key only — your private keys never leave your device.',
               },
               {
-                n: '2',
                 title: 'Start an Auction',
                 desc: 'Enter amount and token pair. Market makers compete in a sealed 30-second bid round to give you the best rate.',
               },
               {
-                n: '3',
                 title: 'Execute Instantly',
                 desc: 'Sign once in Freighter. The Soroban contract atomically settles at the guaranteed price — no slippage ever.',
               },
             ].map((step, i) => (
-              <div key={step.n} className={`reveal delay-${i + 1} flex gap-6 mb-12 last:mb-0`}>
-                <div className="w-10 h-10 shrink-0 bg-navy text-white text-sm font-bold rounded-full flex items-center justify-center relative z-10">
-                  {step.n}
-                </div>
-                <div className="pt-1.5">
-                  <h3 className="text-lg font-bold text-ink mb-1.5">{step.title}</h3>
-                  <p className="text-ink-muted text-sm leading-relaxed">{step.desc}</p>
-                </div>
+              <div key={step.title} className={`reveal delay-${i + 1}`}>
+                <h3 className="text-lg font-bold text-ink mb-2">{step.title}</h3>
+                <p className="text-ink-muted text-sm leading-relaxed">{step.desc}</p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
 
-      {/* ── CTA BANNER ────────────────────────────────────────── */}
-      <section className="py-28 px-4 md:px-8 text-center">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="reveal font-serif text-5xl md:text-6xl font-bold text-ink mb-5 leading-tight">
-            Ready to trade<br />on-chain?
-          </h2>
-          <p className="reveal delay-1 text-ink-muted text-lg mb-10">
-            Join traders already using HyperDex on Stellar testnet.
-          </p>
-          <Link
-            href="/swap"
-            className="reveal delay-2 inline-block bg-navy text-white text-sm font-semibold px-10 py-4 rounded-full hover:bg-navy-light transition-colors"
-          >
-            Launch App
-          </Link>
         </div>
       </section>
 
       {/* ── FOOTER ────────────────────────────────────────────── */}
-      <footer className="bg-navy py-16 px-4 md:px-8">
+      <footer className="bg-cream border-t border-black/10 px-4 md:px-10">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-14">
-            {/* Brand */}
-            <div>
-              <div className="flex items-center gap-2.5 mb-4">
-                <svg viewBox="0 0 100 108" fill="none" className="h-8 w-8 shrink-0 opacity-70">
-                  <rect x="5"  y="5" width="8" height="98" fill="white" />
-                  <rect x="17" y="5" width="8" height="98" fill="white" />
-                  <rect x="29" y="5" width="8" height="98" fill="white" />
-                  <rect x="63" y="5" width="8" height="98" fill="white" />
-                  <rect x="75" y="5" width="8" height="98" fill="white" />
-                  <rect x="87" y="5" width="8" height="98" fill="white" />
-                  <rect x="5" y="42" width="90" height="8" fill="white" />
-                  <rect x="5" y="54" width="90" height="8" fill="white" />
-                  <rect x="5" y="66" width="90" height="8" fill="white" />
-                </svg>
-                <span className="text-white font-bold text-sm">HyperDex</span>
+          <div className="flex flex-col lg:flex-row min-h-[480px]">
+
+            {/* ── LEFT PANEL ── */}
+            <div className="flex-1 py-16 pr-0 lg:pr-16 flex flex-col justify-between">
+              {/* Logo + headline */}
+              <div>
+                <div className="flex items-center gap-2.5 mb-10">
+                  <svg viewBox="0 0 100 108" fill="none" className="h-6 w-6 shrink-0">
+                    <rect x="5"  y="5" width="8" height="98" fill="#111118" />
+                    <rect x="17" y="5" width="8" height="98" fill="#111118" />
+                    <rect x="29" y="5" width="8" height="98" fill="#111118" />
+                    <rect x="63" y="5" width="8" height="98" fill="#111118" />
+                    <rect x="75" y="5" width="8" height="98" fill="#111118" />
+                    <rect x="87" y="5" width="8" height="98" fill="#111118" />
+                    <rect x="5" y="42" width="90" height="8" fill="#111118" />
+                    <rect x="5" y="54" width="90" height="8" fill="#111118" />
+                    <rect x="5" y="66" width="90" height="8" fill="#111118" />
+                  </svg>
+                  <span className="font-display font-bold text-ink text-base">HyperDex</span>
+                </div>
+
+                <h2 className="font-display text-5xl md:text-6xl font-bold text-ink leading-tight mb-12">
+                  Trade without<br />limits.
+                </h2>
               </div>
-              <p className="text-white/40 text-sm leading-relaxed">
-                Institutional-grade RFQ liquidity and zero-slippage execution
-                for the decentralised web.
-              </p>
+
+              {/* Nav columns */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
+                {[
+                  {
+                    title: 'PRODUCT',
+                    links: [
+                      { label: 'Swap',           href: '/swap' },
+                      { label: 'Maker',          href: '/maker' },
+                      { label: 'Docs',           href: '/docs', external: true },
+                      { label: 'Fees',           href: '#' },
+                    ],
+                  },
+                  {
+                    title: 'PROTOCOL',
+                    links: [
+                      { label: 'RFQ Spec',       href: '#' },
+                      { label: 'Smart Contracts', href: '#' },
+                      { label: 'Soroban',        href: '#' },
+                      { label: 'Bug Bounty',     href: '#' },
+                    ],
+                  },
+                  {
+                    title: 'COMPANY',
+                    links: [
+                      { label: 'About',          href: '#' },
+                      { label: 'Blog',           href: '#' },
+                      { label: 'Careers',        href: '#' },
+                    ],
+                  },
+                  {
+                    title: 'SOCIAL',
+                    links: [
+                      { label: 'Twitter / X',    href: '#' },
+                      { label: 'Discord',        href: '#' },
+                      { label: 'GitHub',         href: '#' },
+                    ],
+                  },
+                ].map(col => (
+                  <div key={col.title}>
+                    <p className="text-xs font-bold uppercase tracking-widest text-ink-muted mb-4">{col.title}</p>
+                    <ul className="space-y-3">
+                      {col.links.map((l: any) => (
+                        <li key={l.label}>
+                          {l.external ? (
+                            <a href={l.href} target="_blank" rel="noopener noreferrer" className="text-[15px] text-ink hover:text-ink-muted transition-colors">
+                              {l.label}
+                            </a>
+                          ) : (
+                            <Link href={l.href} className="text-[15px] text-ink hover:text-ink-muted transition-colors">
+                              {l.label}
+                            </Link>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Links */}
-            {[
-              { title: 'Product',     links: ['Swap', 'Maker Dashboard', 'Admin', 'Fees'] },
-              { title: 'Protocol',    links: ['Documentation', 'Smart Contracts', 'RFQ Spec', 'Bug Bounty'] },
-              { title: 'Company',     links: ['About', 'Careers', 'Blog', 'Contact'] },
-            ].map(col => (
-              <div key={col.title}>
-                <h4 className="text-white/80 text-xs font-bold uppercase tracking-wider mb-5">{col.title}</h4>
-                <ul className="space-y-3">
-                  {col.links.map(link => (
-                    <li key={link}>
-                      <a href="#" className="text-white/40 text-sm hover:text-white/70 transition-colors">{link}</a>
-                    </li>
-                  ))}
-                </ul>
+            {/* ── VERTICAL DIVIDER ── */}
+            <div className="hidden lg:block w-px bg-black/10 my-12" />
+
+            {/* ── RIGHT PANEL ── */}
+            <div className="lg:w-[420px] py-16 pl-0 lg:pl-16 flex flex-col justify-start">
+              <p className="text-xs font-bold uppercase tracking-widest text-ink-muted mb-6">COMMUNITY</p>
+
+              <h3 className="font-display text-4xl md:text-5xl font-bold text-ink leading-tight mb-5">
+                Be first on<br />HyperDex.
+              </h3>
+
+              <p className="text-ink-muted text-[15px] leading-relaxed mb-12">
+                Early access to new trading pairs, maker rewards, and protocol updates.
+              </p>
+
+              {/* Email input */}
+              <div className="border-b border-black/20 flex items-center gap-3 pb-3">
+                <input
+                  type="email"
+                  placeholder="you@domain.com"
+                  className="flex-1 bg-transparent text-ink text-[15px] placeholder:text-ink-muted/50 outline-none"
+                />
+                <button
+                  className="text-ink hover:text-ink-muted transition-colors shrink-0"
+                  aria-label="Subscribe"
+                >
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M4 16L16 4M16 4H7M16 4V13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
               </div>
-            ))}
+            </div>
+
           </div>
 
-          <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/8 gap-4">
-            <p className="text-white/30 text-sm">&copy; 2025 HyperDex. All rights reserved.</p>
-            <div className="flex gap-6">
-              {['Twitter', 'Discord', 'GitHub'].map(s => (
-                <a key={s} href="#" className="text-white/30 text-sm hover:text-white/60 transition-colors">{s}</a>
-              ))}
-            </div>
+          {/* Bottom bar */}
+          <div className="border-t border-black/10 py-5 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <p className="text-ink-muted text-sm">&copy; 2025 HyperDex. All rights reserved.</p>
+            <p className="text-ink-muted text-sm">Stellar Testnet</p>
           </div>
         </div>
       </footer>
