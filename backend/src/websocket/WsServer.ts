@@ -151,6 +151,20 @@ export function attachWsServer(httpServer: HttpServer): WebSocketServer {
     const cleanup = async () => {
       clearInterval(pingInterval);
       if (pongTimeout) clearTimeout(pongTimeout);
+
+      // Only tear down registry/pricebook state if THIS socket is still the
+      // registered connection for the maker. On a reconnect, a newer socket may
+      // have already replaced this one under the same makerId — in that case the
+      // old socket's (often delayed) close event must NOT wipe the live
+      // connection, or the maker shows "offline" while actively quoting.
+      if (registry.getConnection(conn.makerId) !== conn) {
+        logger.info('Stale maker socket closed — keeping live connection', {
+          makerId: conn.makerId,
+          name: conn.makerName,
+        });
+        return;
+      }
+
       registry.unregister(conn.makerId);
       PriceBook.getInstance().removeMaker(conn.makerId);
       await Maker.findOneAndUpdate(
