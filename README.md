@@ -110,9 +110,9 @@ POST /api/quote { tokenIn, tokenOut, amountIn, takerAddress }
         │
         ▼
 Backend RFQ Router
-        ├── Identify connected makers with USDC inventory
-        ├── Dispatch RFQ to each via WebSocket (750ms timeout)
-        └── Collect responses, return best quote (highest amountOut)
+        ├── Rank connected makers by their posted price levels
+        ├── Dispatch RFQ to each via WebSocket (30s sealed-bid window)
+        └── Collect sealed bids, return best quote (highest amountOut)
 ```
 
 ### 2. Maker Pricing & Signing
@@ -121,8 +121,10 @@ Backend RFQ Router
 Maker SDK receives RFQ
         │
         ▼
-Price Oracle (CoinGecko EURC/USDC rate)
-        ├── Apply spread tiers based on amountIn
+MakerEngine.getQuote(ctx)   ← pluggable pricing brain
+        ├── Default engine: quote the maker's ghost price, fee-adjusted,
+        │                   gated by an inventory check + drift guard
+        ├── Custom engine:  any logic (live CEX feed, model, fixed rate…)
         ├── Build Quote struct { quoteId, maker, taker, tokenIn, tokenOut,
         │                         amountIn, amountOut, expiry, salt }
         └── Sign SHA256(XDR(quote)) with ed25519 hot key
@@ -231,19 +233,18 @@ pub struct Quote {
 ╚═══════════════════════════════════════════════════════════════════╝
                                                    │
 ╔══════════════════════════════════════════════════╪════════════════╗
-║              MARKET MAKER SDK (Node.js)          │                ║
-║              http://localhost:3001               │                ║
-║                                                  │                ║
-║   Price Oracle (CoinGecko) ──► Ghost Pricer      │                ║
-║                                    │             │                ║
-║   Price Levels (sent every 1s) ────┼─────────────►               ║
-║                                    │             │                ║
-║   RFQ Received ◄───────────────────┼─────────────               ║
-║        │                           │                              ║
-║        ▼                           │                              ║
-║   Signer (ed25519) ──► Quote + Sig ►──── to taker (via backend)  ║
+║              MARKET MAKER SDK (Node.js)                           ║
+║              http://localhost:3001                                ║
 ║                                                                   ║
-║   Trade Confirmed ◄─────── TradePushService push                 ║
+║   MakerEngine — the pluggable pricing brain:                      ║
+║     - default ghost-price engine, or custom via --engine          ║
+║                                                                   ║
+║   getLevels()   -> resting price levels, streamed every ~3s ─────►║
+║   getQuote(ctx) -> signed amountOut per RFQ (null = skip) ───────►║
+║                                                                   ║
+║   Signer (ed25519) ──► Quote + Sig ──── to taker (via backend)    ║
+║                                                                   ║
+║   Trade Confirmed ◄─────── TradePushService push                  ║
 ╚═══════════════════════════════════════════════════════════════════╝
                     ▲
 ╔═══════════════════╪═══════════════════════════════════════════════╗
@@ -264,7 +265,7 @@ Taker (browser)          Backend               Maker SDK           Soroban
       │                     │                      │                   │
       │─ POST /api/quote ──►│                      │                   │
       │                     │─── WS rfqRequest ───►│                   │
-      │                     │                      │─ price oracle     │
+      │                     │                      │─ engine.getQuote  │
       │                     │                      │─ build quote      │
       │                     │                      │─ sign SHA256(XDR) │
       │                     │◄── WS rfqQuote ──────│                   │
@@ -426,23 +427,37 @@ HyperDex/
 │
 ├── maker-sdk/                        # Market maker server (TypeScript)
 │   ├── src/
-│   │   ├── server.ts                 # Express server + WS client bootstrap
-│   │   ├── ws-client.ts              # WebSocket connection to backend
-│   │   ├── ghost-price.ts            # ★ Auto-pricing: CoinGecko oracle + ed25519 signer
-│   │   ├── price-levels.ts           # Streams price levels to backend every 1s
+│   │   ├── server.ts                 # Bootstrap: loads engine (--engine), WS client, dashboard
+│   │   ├── ws-client.ts              # WebSocket to backend; drives engine.getQuote/getLevels
+│   │   ├── types/
+│   │   │   └── MakerEngine.ts        # ★ MakerEngine interface (getLevels/getQuote/onTradeConfirmed)
+│   │   ├── engines/
+│   │   │   └── default-engine.ts     # Built-in ghost-price engine (default)
+│   │   ├── drift-guard.ts            # Warn >1% / pause quoting >3% vs oracle mid
+│   │   ├── ghost-price.ts            # Ghost price state for the default engine
+│   │   ├── index.ts                  # Public barrel: export { MakerEngine, ... }
+│   │   ├── price-levels.ts           # Builds resting price tiers
 │   │   ├── signer.ts                 # ed25519 sign/verify utilities
 │   │   ├── serializer.ts             # Quote → XDR ScVal (alphabetical field order)
-│   │   ├── oracle.ts                 # CoinGecko price feed with caching
+│   │   ├── oracle.ts                 # FX price feed (CoinGecko + fallbacks), cached
 │   │   ├── rate-limiter.ts           # Per-taker RFQ rate limiting
 │   │   ├── inventory-checker.ts      # Read pool balances from Soroban
+│   │   ├── example-pricer.ts         # Ghost-price decision used by the default engine
 │   │   ├── setup.ts                  # Interactive setup wizard
 │   │   ├── activate.ts               # Activate maker after pool deployment
 │   │   ├── generate-keypair.ts       # Generate ed25519 keypair
 │   │   ├── update-signer.ts          # Update signer key on-chain
 │   │   └── types.ts                  # Shared type definitions
 │   │
+│   ├── examples/                     # Custom engine templates for --engine
+│   │   ├── fixed-rate-engine.ts      # Simplest engine: hard-coded rate
+│   │   └── binance-engine.ts         # Live EUR/USD from Binance WebSocket
+│   │
+│   ├── credentials/                  # <name>.cred files (git-ignored — secrets)
+│   ├── CUSTOM_ENGINE.md              # Guide: building a custom pricing engine
+│   ├── TESTING_ENGINES.md            # Guide: E2E-testing engines + common pitfalls
 │   ├── package.json
-│   └── .env                          # MAKER_ADDRESS, SIGNER_PRIVATE_KEY, API_KEY
+│   └── README.md                     # SDK quick start + engine plugin docs
 │
 ├── frontend/                         # Next.js 14 App Router
 │   ├── app/
@@ -520,7 +535,7 @@ The backend handles two concerns: **REST API** for the frontend and **WebSocket 
 
 ```
 Express HTTP Server (:4000)
-├── POST /api/quote        ─── RFQ auction (750ms window, best-quote wins)
+├── POST /api/quote        ─── RFQ auction (30s sealed-bid window, best-quote wins)
 ├── GET  /api/makers       ─── List makers + connection status
 ├── GET  /api/trades       ─── Trade history + status polling
 ├── GET  /health           ─── { activeMakers, priceBookEntries, dbStatus }
@@ -532,7 +547,7 @@ WebSocket Server (:4000/ws/maker)
 ├── MakerConnection  ─── per-maker state, ping/pong heartbeat (30s)
 ├── RFQ dispatch     ─── { type: "rfqRequest", ... } → maker
 ├── Quote receipt    ─── { type: "rfqQuote", ... }   ← maker
-├── Price levels     ─── { type: "priceLevels", ... } ← maker (every 1s)
+├── Price levels     ─── { type: "priceLevels", ... } ← maker (every ~3s)
 ├── Trade push       ─── { type: "tradeConfirmed", ... } → maker
 └── Rate limit       ─── { type: "rfqError", reason: "rate_limit" } ← maker
 ```
@@ -540,13 +555,15 @@ WebSocket Server (:4000/ws/maker)
 ### RFQ Auction (30s Quote Window)
 
 ```
-POST /api/quote
+POST /api/quote/start              → opens a 30s sealed-bid auction
   │
-  ├── Query price book: find makers with token_out inventory
-  ├── Dispatch rfqRequest to up to 3 makers (RFQ_MAX_MAKERS)
-  ├── Wait up to 750ms (RFQ_TIMEOUT_MS) for responses
-  ├── Pick best quote (highest amountOut for the taker)
-  └── Return { quote, signature, makerName }
+  ├── Rank makers from the price book (those quoting the pair)
+  ├── Dispatch rfqRequest to each ranked maker over WebSocket
+  ├── Each maker's engine.getQuote() returns a signed sealed bid
+  └── Return { auctionId, makerCount }
+
+GET /api/quote/result/:auctionId   → poll until the window closes
+  └── Return the best quote { amountOut, signature, makerName, ... }
 ```
 
 ### Confirmation Poller
@@ -626,7 +643,7 @@ Base URL: `https://hyperdex.onrender.com`
 
 ## 🛠 Maker SDK
 
-The maker SDK is a standalone Node.js server that connects to the backend via WebSocket, auto-prices quotes using a CoinGecko oracle, and signs them with an ed25519 key.
+The maker SDK is a standalone Node.js server that connects to the backend over WebSocket, signs quotes with an ed25519 key, and handles Soroban + trade confirmations. **Pricing is pluggable** — it runs through a `MakerEngine`. Beginners use the built-in ghost-price engine; advanced makers ship their own.
 
 ### Setup (one-time)
 
@@ -636,64 +653,89 @@ npm install
 npm run setup
 ```
 
-The interactive setup wizard:
-1. Prompts for your maker Stellar address and backend URL
-2. Generates an ed25519 keypair — the **public key** is registered in `pool_registry` on-chain; the **secret key** stays local
-3. Writes credentials to `~/.hyperdex/maker-credentials.json`
-4. Calls `POST /api/makers/register-signer-key` to store the signer key in MongoDB
+The interactive setup wizard verifies your API key, generates an ed25519 keypair (the **public key** is registered in `pool_registry` on-chain; the **secret key** stays local), and writes everything to `credentials/<yourname>.cred`. Deploy your pool at https://hyperdex-psi.vercel.app/maker and add `POOL_ADDRESS=C...` to that file.
 
 ### Running the SDK
 
 ```bash
-npm run dev
+# Built-in ghost-price engine (prompts for a ghost price)
+npm run dev <yourname>
+
+# Custom engine — NOTE the `--` separator (npm strips a bare flag otherwise)
+npm run dev <yourname> -- --engine=./examples/fixed-rate-engine.ts
+npm run dev <yourname> -- --engine=./examples/binance-engine.ts
+
+# Skip the ghost-price prompt (non-interactive / CI)
+GHOST_PRICE=0.8788 npm run dev <yourname>
 ```
 
 **Startup banner:**
 ```
 ════════════════════════════════════════
-  HYPERDEX MAKER SDK  ·  TESTNET
-  Maker:   HyperDEX MM
-  Address: GALNCMRJ2...
+  HyperDEX Maker SDK
+  Maker:   Hog
+  Address: GCG6...72DJ
   Pool:    C...
-  USDC:    100.00   EURC:  100.00
+  Backend: wss://hyperdex.onrender.com/ws/maker
+  Engine:  fixed-rate-engine.ts [custom]   (or: Built-in (ghost-price))
 ════════════════════════════════════════
-[WS] Connected to ws://localhost:4000/ws
-[PriceLevels] Sent: 3 sell levels, 3 buy levels (USDC/EURC)
+[WS] Connected to HyperDEX backend
 ```
 
-### Ghost Pricer (Auto-Pricing)
+### The MakerEngine Plugin System
 
-The `ghost-price.ts` module handles automated pricing for the demo maker:
+Pricing lives in an engine that answers two questions; the SDK does everything else (WebSocket, auth, ed25519 signing in the exact XDR the contract verifies, Soroban, trade confirmations):
+
+| Method | Called | Returns |
+|---|---|---|
+| `getLevels()` | every ~3s | resting book `{ sellLevels, buyLevels }` (empty arrays = go offline gracefully) |
+| `getQuote(ctx)` | on each RFQ | `amountOut` in **stroops** as a string, or `null` to skip (no penalty) |
+| `onTradeConfirmed(trade)` *(optional)* | when a fill settles | refresh inventory / hedge / log |
+
+**Tier 1 — built-in ghost-price engine (default).** Set one ghost price (EURC per USDC); the SDK quotes it fee-adjusted on every RFQ, gated by an **inventory check** (never quotes >80% of pool balance) and a **drift guard** (`drift-guard.ts`: warns when the ghost price is >1% from the live oracle mid, pauses quoting at >3%). Press `Ctrl+R` to re-price, `Ctrl+C` to disconnect.
+
+**Tier 2/3 — custom engine.** Pass `--engine=./my-engine.ts`. A custom engine owns all pricing, so the SDK skips the ghost-price prompt and `Ctrl+R`. If the file is missing or invalid, the SDK logs the error and **falls back to the default engine**.
 
 ```typescript
-// Every RFQ received:
-1. Fetch EURC/USDC spot rate from CoinGecko (cached 30s)
-2. Apply spread: amountOut = amountIn × rate × (1 - spread)
-   where spread depends on trade size:
-   │  < $100:  0.05%
-   │  < $500:  0.10%
-   │  < $5000: 0.20%
-   └  ≥ $5000: 0.30%
-3. Build Quote struct (alphabetical XDR field order)
-4. Sign SHA256(XDR(quote)) with ed25519 key
-5. Return { quote, signature } to backend within 750ms
+// my-engine.ts
+import { MakerEngine, RfqContext, PriceLevels } from '../src/types/MakerEngine'
+
+const engine: MakerEngine = {
+  async getLevels(): Promise<PriceLevels> {
+    return {
+      sellLevels: [{ quantity: '1000000000', price: '0.87800000' }], // USDC→EURC
+      buyLevels:  [{ quantity: '1000000000', price: '1.13800000' }], // EURC→USDC
+    }
+  },
+  async getQuote(ctx: RfqContext): Promise<string | null> {
+    const rate   = ctx.tokenInSymbol === 'USDC' ? 0.8780 : 1 / 0.8780
+    const feeAdj = 1 - ctx.feesBps * 0.0001            // protocol fee
+    const out    = Math.floor(ctx.amountInHuman * rate * feeAdj * 1e7)
+    return out > 0 ? out.toString() : null             // null = skip
+  },
+}
+export default engine
 ```
+
+Working templates live in `examples/` (`fixed-rate-engine.ts`, `binance-engine.ts`). Full guides: `maker-sdk/CUSTOM_ENGINE.md` (building engines) and `maker-sdk/TESTING_ENGINES.md` (E2E-testing + two key pitfalls: getting the rate **direction** right, and **checking inventory** so you don't quote unfillable size).
 
 ### Rate Limiting
 
-The SDK tracks RFQ requests per taker address. After 10 requests within a rolling window, it sends `rfqError { reason: "rate_limit", expiryTimestampMs }` to the backend. The backend stores this in MongoDB and blocks further RFQs from that taker for the specified duration.
+The SDK tracks RFQ requests per taker address. After exceeding the limit within a rolling window, it sends `rfqError { reason: "rate_limit", expiryTimestampMs }` to the backend, which stores it in MongoDB and blocks further RFQs from that taker for the specified duration.
 
-### maker-sdk `.env`
+### Credentials (`credentials/<yourname>.cred`)
+
+Created by `npm run setup`; **git-ignored** — never commit it.
 
 ```env
+MAKER_API_KEY=sk_live_...
+SIGNER_PRIVATE_KEY=<hex — ed25519 secret>
 MAKER_ADDRESS=G...
-SIGNER_PRIVATE_KEY=<64 hex chars — ed25519 secret>
+POOL_ADDRESS=C...
 PORT=3001
-MAKER_NAME=HyperDEX MM
+BACKEND_WS_URL=wss://hyperdex.onrender.com/ws/maker
 USDC_CONTRACT=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
 EURC_CONTRACT=CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ
-BACKEND_WS_URL=wss://hyperdex.onrender.com/ws/maker
-MAKER_API_KEY=sk_live_...
 ```
 
 ---
@@ -856,8 +898,10 @@ npm run build && npm start
 ```bash
 cd maker-sdk
 npm install
-npm run setup   # interactive wizard — generates keypair, registers signer key
-npm run dev     # start pricing server
+npm run setup           # interactive wizard — generates keypair, registers signer key
+npm run dev <yourname>  # start with the built-in ghost-price engine
+# or run a custom pricing engine (note the `--` separator):
+# npm run dev <yourname> -- --engine=./examples/binance-engine.ts
 ```
 
 Then complete the on-chain pool deployment via `http://localhost:3000/maker`.
@@ -947,7 +991,8 @@ curl https://hyperdex.onrender.com/api/makers
 - [x] 5 Soroban contracts deployed on Stellar testnet
 - [x] Sealed-bid RFQ architecture — zero slippage, no front-running
 - [x] WebSocket-based maker SDK with ed25519 signing
-- [x] Automated pricing via CoinGecko oracle (ghost pricer)
+- [x] Pluggable `MakerEngine` pricing system — built-in ghost-price engine (default) + custom engines via `--engine`
+- [x] Drift guard (warn >1% / pause quoting >3% vs oracle mid) + inventory-gated quoting
 - [x] Multi-step maker onboarding dashboard
 - [x] Admin panel — maker application review + API key management
 - [x] Trade confirmation push service (WebSocket, retries for 5 min)
@@ -988,13 +1033,13 @@ curl https://hyperdex.onrender.com/api/makers
 | API Framework | Express | 4.x |
 | WebSocket | `ws` | 8.x |
 | Database | MongoDB (Atlas) | 6.x |
-| Maker SDK | Node.js + TypeScript | — |
+| Maker SDK | Node.js + TypeScript (pluggable `MakerEngine`) | — |
 | ed25519 signing | `tweetnacl` | 1.x |
-| XDR serialization | `@stellar/stellar-sdk` | 15.x |
-| Price Oracle | CoinGecko API | — |
+| XDR serialization | `@stellar/stellar-sdk` | 16.x (frontend) · 13.x (maker-sdk) |
+| Price Oracle | CoinGecko + FX fallbacks (open.er-api, exchangerate-api) | — |
 | Frontend | Next.js (App Router) | 14 |
 | Styling | Tailwind CSS | 3.x |
-| Wallet | Freighter (browser extension) | — |
+| Wallet | Freighter (`@stellar/freighter-api`) | 6.x |
 | Language | TypeScript | 5.x |
 | Deployment (frontend) | Vercel | — |
 | Deployment (backend) | Render | — |
