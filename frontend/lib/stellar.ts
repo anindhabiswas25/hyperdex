@@ -208,32 +208,58 @@ export async function isFreighterInstalled(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
   try {
     const { isConnected } = await import('@stellar/freighter-api');
-    return await isConnected();
+    const res = await isConnected();
+    return res.isConnected === true;
   } catch {
     return false;
   }
 }
 
 export async function connectFreighter(): Promise<string> {
-  const { setAllowed, getPublicKey } = await import('@stellar/freighter-api');
+  const { setAllowed, requestAccess } = await import('@stellar/freighter-api');
   await setAllowed();
-  return getPublicKey();
+  const res = await requestAccess();
+  if (res.error) throw new Error((res.error as { message?: string }).message ?? 'Freighter access denied');
+  return res.address;
 }
 
 export async function getFreighterAddress(): Promise<string> {
   try {
-    const { isAllowed, getPublicKey } = await import('@stellar/freighter-api');
+    const { isAllowed, getAddress } = await import('@stellar/freighter-api');
     const allowed = await isAllowed();
-    if (!allowed) return '';
-    return getPublicKey();
+    if (!allowed.isAllowed) return '';
+    const res = await getAddress();
+    if (res.error || !res.address) return '';
+    return res.address;
   } catch {
     return '';
   }
 }
 
 export async function signWithFreighter(txXdr: string): Promise<string> {
-  const { signTransaction } = await import('@stellar/freighter-api');
-  return signTransaction(txXdr, { networkPassphrase: NETWORK_PASSPHRASE });
+  const { signTransaction, getNetworkDetails } = await import('@stellar/freighter-api');
+
+  // Guard against the #1 cause of txBadAuth: Freighter signing on a different
+  // network than the one the transaction was built for. Signing on the wrong
+  // network produces a signature the target network rejects (txBadAuth).
+  try {
+    const net = await getNetworkDetails();
+    if (!net.error && net.networkPassphrase && net.networkPassphrase !== NETWORK_PASSPHRASE) {
+      const want = FREIGHTER_NETWORK === 'PUBLIC' ? 'Mainnet (Public)' : 'Testnet';
+      throw new Error(
+        `Freighter is connected to the wrong network. Switch it to ${want} in the Freighter extension, then try again.`
+      );
+    }
+  } catch (e) {
+    // Re-throw our own guard message; ignore failures of the network probe itself.
+    if (e instanceof Error && e.message.startsWith('Freighter is connected')) throw e;
+  }
+
+  const result = await signTransaction(txXdr, { networkPassphrase: NETWORK_PASSPHRASE });
+  if (result.error) {
+    throw new Error((result.error as { message?: string }).message ?? 'Freighter failed to sign the transaction');
+  }
+  return result.signedTxXdr;
 }
 
 export function stroopsToHuman(stroops: string | bigint, decimals = 7): string {
