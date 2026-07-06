@@ -2,12 +2,12 @@
 
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error,
-    Address, Bytes, BytesN, Env,
+    Address, Bytes, BytesN, Env, Vec,
     xdr::ToXdr,
 };
 
-const LEDGER_THRESHOLD: u32 = 100_000;
-const LEDGER_BUMP: u32 = 120_000;
+const LEDGER_THRESHOLD: u32 = 1_000_000;
+const LEDGER_BUMP: u32 = 1_500_000;
 
 #[contracterror]
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -39,14 +39,33 @@ pub struct Quote {
     pub salt: BytesN<32>,
 }
 
+/// Mirrors pool_registry::MakerInfo. Soroban cross-contract calls match
+/// contracttype values structurally, so each contract keeps its own copy —
+/// there's no shared crate between workspace members.
+#[contracttype]
+#[derive(Clone)]
+pub struct MakerInfo {
+    pub maker: Address,
+    pub signer_key: BytesN<32>,
+    pub pool_address: Address,
+    pub supported_pairs: Vec<(Address, Address)>,
+    pub active: bool,
+}
+
+#[contracttype]
+#[derive(Clone)]
+struct Config {
+    admin: Address,
+    registry: Address,
+    fee_distributor: Address,
+    usdc: Address,
+    eurc: Address,
+    fee_bps: u32,
+}
+
 #[contracttype]
 enum DataKey {
-    Admin,
-    Registry,
-    FeeDistributor,
-    FeeBps,
-    Usdc,
-    Eurc,
+    Config,
     UsedQuote(BytesN<32>),
     Initialized,
 }
@@ -57,9 +76,7 @@ use soroban_sdk::contractclient;
 
 #[contractclient(name = "RegistryClient")]
 pub trait PoolRegistryTrait {
-    fn get_signer_key(env: Env, maker: Address) -> BytesN<32>;
-    fn is_active(env: Env, maker: Address) -> bool;
-    fn get_pool_address(env: Env, maker: Address) -> Address;
+    fn get_maker(env: Env, maker: Address) -> MakerInfo;
 }
 
 #[contractclient(name = "MakerPoolClient")]
@@ -95,17 +112,18 @@ impl QuoteVerifier {
         if env.storage().instance().has(&DataKey::Initialized) {
             panic_with_error!(env, Error::AlreadyInitialized);
         }
-        env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::Registry, &registry);
-        env.storage()
-            .instance()
-            .set(&DataKey::FeeDistributor, &fee_distributor);
-        env.storage().instance().set(&DataKey::Usdc, &usdc);
-        env.storage().instance().set(&DataKey::Eurc, &eurc);
-        env.storage().instance().set(&DataKey::FeeBps, &fee_bps);
-        env.storage()
-            .instance()
-            .set(&DataKey::Initialized, &true);
+        admin.require_auth();
+
+        let config = Config {
+            admin,
+            registry,
+            fee_distributor,
+            usdc,
+            eurc,
+            fee_bps,
+        };
+        env.storage().instance().set(&DataKey::Config, &config);
+        env.storage().instance().set(&DataKey::Initialized, &true);
         env.storage()
             .instance()
             .extend_ttl(LEDGER_THRESHOLD, LEDGER_BUMP);
@@ -119,12 +137,11 @@ impl QuoteVerifier {
             .instance()
             .extend_ttl(LEDGER_THRESHOLD, LEDGER_BUMP);
 
-        let usdc: Address = env.storage().instance().get(&DataKey::Usdc).unwrap();
-        let eurc: Address = env.storage().instance().get(&DataKey::Eurc).unwrap();
+        let config: Config = env.storage().instance().get(&DataKey::Config).unwrap();
 
         // Step 1 — tokens must be USDC/EURC and different
-        let in_ok = quote.token_in == usdc || quote.token_in == eurc;
-        let out_ok = quote.token_out == usdc || quote.token_out == eurc;
+        let in_ok = quote.token_in == config.usdc || quote.token_in == config.eurc;
+        let out_ok = quote.token_out == config.usdc || quote.token_out == config.eurc;
         if !in_ok || !out_ok || quote.token_in == quote.token_out {
             panic_with_error!(env, Error::InvalidTokens);
         }
@@ -143,13 +160,13 @@ impl QuoteVerifier {
         // Step 4 — taker auth
         quote.taker.require_auth();
 
-        // Step 5 — fetch maker info
-        let registry: Address = env.storage().instance().get(&DataKey::Registry).unwrap();
-        let registry_client = RegistryClient::new(&env, &registry);
-        if !registry_client.is_active(&quote.maker) {
+        // Step 5 — fetch maker info: a single cross-contract read instead of
+        // three (is_active + get_signer_key + get_pool_address).
+        let registry_client = RegistryClient::new(&env, &config.registry);
+        let maker_info = registry_client.get_maker(&quote.maker);
+        if !maker_info.active {
             panic_with_error!(env, Error::InvalidSigner);
         }
-        let signer_key = registry_client.get_signer_key(&quote.maker);
 
         // Step 6 — canonical message hash: SHA256 of XDR-encoded Quote struct.
         let msg_bytes: Bytes = quote.clone().to_xdr(&env);
@@ -158,7 +175,7 @@ impl QuoteVerifier {
         // Step 7 — ed25519 verify
         let hash_as_bytes: Bytes = msg_hash.to_bytes().into();
         env.crypto()
-            .ed25519_verify(&signer_key, &hash_as_bytes, &signature);
+            .ed25519_verify(&maker_info.signer_key, &hash_as_bytes, &signature);
 
         // Step 8 — mark quote_id as used
         env.storage().persistent().set(&used_key, &true);
@@ -167,31 +184,21 @@ impl QuoteVerifier {
             .extend_ttl(&used_key, LEDGER_THRESHOLD, LEDGER_BUMP);
 
         // Step 9 — protocol fee
-        let fee_bps: u32 = env.storage().instance().get(&DataKey::FeeBps).unwrap();
-        let fee_amount = (quote.amount_out * fee_bps as i128) / 10_000;
+        let fee_amount = (quote.amount_out * config.fee_bps as i128) / 10_000;
         let taker_gets = quote.amount_out - fee_amount;
 
-        // Step 10 — get maker's specific pool address
-        let pool_address = registry_client.get_pool_address(&quote.maker);
-
-        // Step 11 — atomic swap through maker's own pool
-        let fee_dist: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::FeeDistributor)
-            .unwrap();
-
-        MakerPoolClient::new(&env, &pool_address).execute_swap(
+        // Step 10 — atomic swap through maker's own pool
+        MakerPoolClient::new(&env, &maker_info.pool_address).execute_swap(
             &quote.token_in,
             &quote.token_out,
             &quote.amount_in,
             &taker_gets,
             &quote.taker,
             &fee_amount,
-            &fee_dist,
+            &config.fee_distributor,
         );
 
-        // Step 12 — emit event
+        // Step 11 — emit event
         env.events().publish(
             ("quote_executed",),
             (quote.quote_id, quote.maker, quote.taker),
@@ -199,15 +206,14 @@ impl QuoteVerifier {
     }
 
     pub fn set_fee_bps(env: Env, new_fee_bps: u32) {
-        let admin: Address = env
+        let mut config: Config = env
             .storage()
             .instance()
-            .get(&DataKey::Admin)
+            .get(&DataKey::Config)
             .unwrap_or_else(|| panic_with_error!(env, Error::NotInitialized));
-        admin.require_auth();
-        env.storage()
-            .instance()
-            .set(&DataKey::FeeBps, &new_fee_bps);
+        config.admin.require_auth();
+        config.fee_bps = new_fee_bps;
+        env.storage().instance().set(&DataKey::Config, &config);
         env.storage()
             .instance()
             .extend_ttl(LEDGER_THRESHOLD, LEDGER_BUMP);
@@ -216,7 +222,8 @@ impl QuoteVerifier {
     pub fn get_protocol_fee(env: Env) -> u32 {
         env.storage()
             .instance()
-            .get(&DataKey::FeeBps)
+            .get::<_, Config>(&DataKey::Config)
+            .map(|c| c.fee_bps)
             .unwrap_or(0)
     }
 }

@@ -13,12 +13,14 @@
 ## Contract Addresses
 | Contract        | Address |
 |-----------------|---------|
-| pool_registry   | `CCJHRG7A4O36MJ7473AKID4FY6YJAUWCMDFOCB5KUWOP5ZPXVKMKRIK7` |
-| vault           | `CAJBOJRTSXS7CLNOSMO23D2MFXKGKTL3XVQH56H5HKPD6V7SHAHT7SSB` |
-| quote_verifier  | `CDBLP52CBG4D6IG26DGTO7G3APVU3UZAZXTXC52V6LK4H4WXFYOBDZSC` |
-| fee_distributor | `CBOQ5X23YTHT5NKB3EPW3Q3A77TRR4CQUYWEU4TA2XCNUKX57JTDYYJA` |
+| pool_registry   | `CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP` |
+| quote_verifier  | `CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN` |
+| maker_pool_factory | `CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6` |
+| fee_distributor | `CCQIZPZD7T2ZFYFTISMJ7GSPLK32L43EXJLHZM7JJX6ERXWO7DURJSYF` |
 | USDC SAC        | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` |
-| EURC SAC        | `CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X` |
+| EURC SAC        | `CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ` |
+
+> No shared "vault" — each maker has their own `maker_pool` deployed by the factory.
 
 Issuer (Circle testnet): `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`
 
@@ -49,23 +51,19 @@ EURC (Euro Coin) is a Circle-issued token on Stellar testnet. The vault needs EU
 **Step 2** — Select **Stellar** network and **EURC** asset
 **Step 3** — Get EURC for the maker: `GALNCMRJ2GCQ34RH7L55HZLUCZ3EHDIKPWTNTWDGVJ4FJWCP5GDVA726`
 **Step 4** — Get EURC for the taker: `GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A`
-**Step 5** — Deposit EURC into vault:
-```bash
-cd /home/asus/Project/HyperDex/backend
-MAKER_SECRET_KEY=SDLZVHAQNYI4OGE5BOIZLUEVOLCDT466MGZX37ICQBNE63WWTC53CWOC \
-USDC_CONTRACT_ADDRESS=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA \
-EURC_CONTRACT_ADDRESS=CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X \
-VAULT_CONTRACT_ADDRESS=CAJBOJRTSXS7CLNOSMO23D2MFXKGKTL3XVQH56H5HKPD6V7SHAHT7SSB \
-NODE_PATH=./node_modules npx ts-node --transpile-only --project tsconfig.json ../scripts/deposit-vault-inventory.ts
-```
+**Step 5** — Deposit EURC into your maker pool: open `/maker` → **Inventory** tab
+→ enter an EURC amount → **Deposit**. This runs the 2-TX `approve` + `deposit`
+flow in Freighter. (The old `deposit-vault-inventory.ts` script has been removed;
+deposits are frontend-driven now.)
 
 ## Start Commands
 ```bash
 # Terminal 1
 cd /home/asus/Project/HyperDex/backend && npm run dev
 
-# Terminal 2
-cd /home/asus/Project/HyperDex/maker-sdk && npm run dev
+# Terminal 2  (after `npm run setup` creates credentials/<name>.cred)
+cd /home/asus/Project/HyperDex/maker-sdk && npm run dev <name>
+# built-in ghost-price engine; or a custom one: npm run dev <name> -- --engine=./examples/binance-engine.ts
 
 # Terminal 3
 cd /home/asus/Project/HyperDex/frontend && npm run dev
@@ -102,7 +100,7 @@ curl -X POST http://localhost:4000/api/quote \
   -H 'Content-Type: application/json' \
   -d '{
     "tokenIn":  "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
-    "tokenOut": "CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X",
+    "tokenOut": "CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ",
     "amountIn": "10000000",
     "takerAddress": "GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A"
   }'
@@ -114,7 +112,7 @@ Pass: HTTP 200, signature is exactly 128 chars, amountOut > 0
 curl -X POST http://localhost:4000/api/quote \
   -H 'Content-Type: application/json' \
   -d '{
-    "tokenIn":  "CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X",
+    "tokenIn":  "CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ",
     "tokenOut": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
     "amountIn": "10000000",
     "takerAddress": "GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A"
@@ -128,7 +126,7 @@ curl -X POST http://localhost:4000/api/quote \
   -H 'Content-Type: application/json' \
   -d '{
     "tokenIn":  "INVALID_ADDRESS",
-    "tokenOut": "CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X",
+    "tokenOut": "CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ",
     "amountIn": "10000000",
     "takerAddress": "GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A"
   }'
@@ -160,33 +158,46 @@ Expected:
 {
   "status": "ok",
   "maker": "GALNCMRJ2GCQ34RH7L55HZLUCZ3EHDIKPWTNTWDGVJ4FJWCP5GDVA726",
-  "public_key": "f89265fbd7803601eb3a50a830f7ac0b3e5a3c490ec9705058e3a83311eca9d7"
+  "connected": true,
+  "midRate": 0.8788,
+  "volatility": 0.0,
+  "vault": { "usdc": "1000.0000000", "eurc": "0.0000000" },
+  "oracle": { "midRate": 0.8788, "volatility": 0.0, "stale": false }
 }
 ```
-Pass: status "ok", maker address and public_key present
+Pass: status "ok", `connected: true`, `midRate` > 0, `vault` balances present
 
 ### Test 2.2 — Price Oracle Live
 Start maker SDK and check backend health for priceBookEntries >= 1.
 If oracle hits rate limit on CoinGecko, the fallback (open.er-api.com) is used.
 Pass: priceBookEntries >= 1 within 5 seconds of maker SDK start
 
-### Test 2.3 — Direct Quote from Maker
+### Test 2.3 — Engine-signed quote via the backend RFQ
+The SDK no longer exposes a direct `POST /quote` endpoint. Quotes are produced by
+the maker's **engine** (`getQuote()`) and signed only in response to a backend RFQ
+auction. Exercise it through the backend (same call as Test 1.3):
 ```bash
-curl -X POST http://localhost:3001/quote \
+curl -X POST http://localhost:4000/api/quote \
   -H 'Content-Type: application/json' \
   -d '{
-    "token_in":  "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
-    "token_out": "CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X",
-    "amount_in": "10000000",
-    "taker": "GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A"
+    "tokenIn":  "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+    "tokenOut": "CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ",
+    "amountIn": "10000000",
+    "takerAddress": "GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A"
   }'
 ```
-Pass: HTTP 200, signature is exactly 128 hex chars
+Pass: HTTP 200, `quote.signature` is exactly 128 hex chars, `amountOut` > 0
 
 ### Test 2.4 — Signature Format
-From Test 2.3 response:
+From the Test 2.3 response's `quote.signature`:
 - signature.length === 128 ✓
 - signature matches /^[0-9a-f]{128}$/ ✓
+
+### Test 2.5 — Custom engine loads (optional)
+Start the SDK with `npm run dev <name> -- --engine=./examples/binance-engine.ts`.
+Pass: startup banner shows `Engine: binance-engine.ts [custom]` and quotes still
+sign. A bad `--engine` path must **fall back** to the built-in engine, not crash.
+See `maker-sdk/TESTING_ENGINES.md` for the full engine test recipe.
 
 ---
 
@@ -282,7 +293,7 @@ Pass: Modal closes, no Freighter popup, no transaction
 6. Click "Confirm"
 7. Freighter popup appears
    - Verify: Network = Testnet
-   - Verify: Contract = `CDBLP52CBG4D6IG26DGTO7G3APVU3UZAZXTXC52V6LK4H4WXFYOBDZSC`
+   - Verify: Contract = `CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN`
    - Verify: Fee < 1 XLM
 8. Click "Approve" in Freighter
 
@@ -433,7 +444,8 @@ Pass: "Insufficient USDC balance" error, Swap disabled
 ### "No liquidity available"
 - Check: `curl http://localhost:3001/health`
 - Maker SDK must show status: "ok"
-- Restart maker SDK if needed: `cd maker-sdk && npm run dev`
+- Restart maker SDK if needed: `cd maker-sdk && npm run dev <name>`
+- If a custom `--engine` won't load, the SDK falls back to the built-in engine and logs why — fix the path (keep the `--` separator)
 
 ### Balances showing 0
 - Wrong token address in frontend .env.local
@@ -474,7 +486,7 @@ curl -s -X POST http://localhost:4000/api/quote \
   -H 'Content-Type: application/json' \
   -d '{
     "tokenIn":  "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
-    "tokenOut": "CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X",
+    "tokenOut": "CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ",
     "amountIn": "10000000",
     "takerAddress": "GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A"
   }' | python3 -m json.tool
@@ -524,7 +536,8 @@ Fill in as you test:
 | 1.6   | Vault balance            |        |       |         |
 | 1.7   | Trade history            |        |       |         |
 | 2.1   | Maker SDK health         |        |       |         |
-| 2.3   | Direct maker quote       |        |       |         |
+| 2.3   | Engine quote via backend |        |       |         |
+| 2.5   | Custom engine loads      |        |       |         |
 | 3.1   | Page load                |        |       |         |
 | 3.2   | Wallet connect           |        |       |         |
 | 3.3   | Quote fetch              |        |       |         |

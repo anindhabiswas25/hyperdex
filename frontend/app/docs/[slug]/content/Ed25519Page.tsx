@@ -13,7 +13,7 @@ export default function Ed25519Page() {
       <P>The maker signs <Mono>SHA256(XDR(quote))</Mono> — the SHA-256 hash of the XDR-encoded Quote struct. This ensures the signature covers every field of the quote (amounts, addresses, expiry, salt) and cannot be reused for a different quote.</P>
 
       <H2 id="hot-key-vs-wallet">Hot key vs. wallet key</H2>
-      <P>The signing key is a <strong>hot key</strong> that lives in the Maker SDK. It is separate from the maker&apos;s Stellar wallet keypair, which holds vault inventory. This separation limits exposure: if the hot key is compromised, the attacker can sign fake quotes but cannot withdraw vault funds.</P>
+      <P>The signing key is a <strong>hot key</strong> that lives in the Maker SDK. It is separate from the maker&apos;s Stellar wallet keypair, which controls the maker_pool inventory. This separation limits exposure: if the hot key is compromised, the attacker can sign fake quotes but cannot withdraw pool funds.</P>
     </>
   );
 }

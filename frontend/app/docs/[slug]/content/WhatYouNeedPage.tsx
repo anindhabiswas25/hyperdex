@@ -34,9 +34,10 @@ cd backend && npm run dev
 # → HyperDEX Backend running on port 4000
 
 # Terminal 2 — Maker SDK (provides liquidity)
-cd maker-sdk && npm run dev
-# → Maker server listening on port 3001
-# → Connected to backend WS
+# after \`npm run setup\` creates credentials/<name>.cred:
+cd maker-sdk && npm run dev <name>
+# → set a ghost price when prompted (or --engine=./x.ts for a custom engine)
+# → [WS] Connected to HyperDEX backend
 
 # Terminal 3 — Frontend
 cd frontend && npm run dev

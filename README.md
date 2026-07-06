@@ -222,7 +222,7 @@ pub struct Quote {
 ║   REST API ──── /api/quote ──────────────── RFQ Router            ║
 ║                 /api/trades                      │                ║
 ║                 /api/makers                      │ WebSocket      ║
-║                 /api/health               ┌──────▼────────┐      ║
+║                 /health                   ┌──────▼────────┐      ║
 ║                                           │  WsServer     │      ║
 ║   Confirmation ──── Horizon Poller        │               │      ║
 ║   Poller             (every 5s)           │  maker conns  │      ║
@@ -485,10 +485,12 @@ HyperDex/
 │
 ├── scripts/                          # Deployment + utility scripts
 │   ├── deploy-v2.sh                  # Deploy all contracts, write addrs to .env
-│   ├── smoke-test.sh                 # 14-step smoke test
-│   ├── register-maker-onchain.ts     # Register maker in pool_registry
+│   ├── smoke-test.ts                 # Full E2E smoke test (npx ts-node)
 │   ├── register-maker-mongodb.ts     # Register maker in MongoDB + issue API key
-│   └── deposit-vault-inventory.ts    # Deposit USDC/EURC into maker pool
+│   ├── reset-test-makers.ts          # Clear orphan makers so /maker restarts clean
+│   ├── update-signer.ts              # Rotate a maker's on-chain signer key
+│   └── check-system.sh               # Quick health/quote/inventory check
+│                                     # (on-chain register + deposit are now done in the /maker UI)
 │
 ├── HYPERDEX_E2E_FLOW.md              # Step-by-step E2E test guide
 ├── HYPERDEX_TESTING_GUIDE.md         # Full testing reference
@@ -507,10 +509,10 @@ HyperDex/
 
 | Contract | Address | Explorer |
 |---|---|---|
-| **pool_registry** | `CAWPFMTTRQD76CBXMRBJTXKFBFYD37RZM6ZZXOZ7QBYTKCXK5YOEOK4J` | [view](https://stellar.expert/explorer/testnet/contract/CAWPFMTTRQD76CBXMRBJTXKFBFYD37RZM6ZZXOZ7QBYTKCXK5YOEOK4J) |
-| **quote_verifier** | `CA5EB6VSUMCTXPKN7RYOZO26WCFCEV3ETWREUBIDLPF4ICF2ASV56CQI` | [view](https://stellar.expert/explorer/testnet/contract/CA5EB6VSUMCTXPKN7RYOZO26WCFCEV3ETWREUBIDLPF4ICF2ASV56CQI) |
-| **maker_pool_factory** | `CDLPUEPZM6BD7M7UA4J2LZSPHNBXHLNHMNKWLJCUL4P345FBDCMNDHMH` | [view](https://stellar.expert/explorer/testnet/contract/CDLPUEPZM6BD7M7UA4J2LZSPHNBXHLNHMNKWLJCUL4P345FBDCMNDHMH) |
-| **fee_distributor** | `CAOO73GNR27CNWMRN66ZCFRILFCLMHMLSNGA6QBGQ6ZUQVCAWNILYUMZ` | [view](https://stellar.expert/explorer/testnet/contract/CAOO73GNR27CNWMRN66ZCFRILFCLMHMLSNGA6QBGQ6ZUQVCAWNILYUMZ) |
+| **pool_registry** | `CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP` | [view](https://stellar.expert/explorer/testnet/contract/CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP) |
+| **quote_verifier** | `CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN` | [view](https://stellar.expert/explorer/testnet/contract/CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN) |
+| **maker_pool_factory** | `CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6` | [view](https://stellar.expert/explorer/testnet/contract/CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6) |
+| **fee_distributor** | `CCQIZPZD7T2ZFYFTISMJ7GSPLK32L43EXJLHZM7JJX6ERXWO7DURJSYF` | [view](https://stellar.expert/explorer/testnet/contract/CCQIZPZD7T2ZFYFTISMJ7GSPLK32L43EXJLHZM7JJX6ERXWO7DURJSYF) |
 | **USDC SAC** | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` | [view](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
 | **EURC SAC** | `CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ` | [view](https://stellar.expert/explorer/testnet/contract/CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ) |
 
@@ -801,9 +803,9 @@ Freighter signs execute_quote TX
 NEXT_PUBLIC_BACKEND_URL=https://hyperdex.onrender.com
 NEXT_PUBLIC_STELLAR_NETWORK=testnet
 NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
-NEXT_PUBLIC_QUOTE_VERIFIER_CONTRACT=CA5EB6VSUMCTXPKN7RYOZO26WCFCEV3ETWREUBIDLPF4ICF2ASV56CQI
-NEXT_PUBLIC_POOL_REGISTRY_CONTRACT=CAWPFMTTRQD76CBXMRBJTXKFBFYD37RZM6ZZXOZ7QBYTKCXK5YOEOK4J
-NEXT_PUBLIC_MAKER_POOL_FACTORY_ADDRESS=CDLPUEPZM6BD7M7UA4J2LZSPHNBXHLNHMNKWLJCUL4P345FBDCMNDHMH
+NEXT_PUBLIC_QUOTE_VERIFIER_CONTRACT=CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN
+NEXT_PUBLIC_POOL_REGISTRY_CONTRACT=CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP
+NEXT_PUBLIC_MAKER_POOL_FACTORY_ADDRESS=CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6
 NEXT_PUBLIC_USDC_CONTRACT=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
 NEXT_PUBLIC_EURC_CONTRACT=CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ
 NEXT_PUBLIC_ADMIN_ADDRESS=GAL6ZVVRE2RPFS2X23I65QANHHIBGHKTGGVIT5AJURRKTIMEVUMJJUZZ
@@ -918,28 +920,21 @@ Then complete the on-chain pool deployment via `http://localhost:3000/maker`.
 
 ## 🧪 Testing
 
-### Smoke Test (14 steps)
+### Smoke Test (full E2E, no browser)
 
 ```bash
-chmod +x scripts/smoke-test.sh
-./scripts/smoke-test.sh
+# Run from the repo root
+npx ts-node scripts/smoke-test.ts
 ```
 
-The smoke test covers:
+`scripts/smoke-test.ts` drives the whole backend flow end-to-end and asserts each phase:
 1. Backend health check
-2. Maker SDK connectivity
-3. Price level streaming
-4. Quote request (EURC → USDC, 20 units)
-5. Quote expiry validation
-6. Replay protection
-7. Vault balance check
-8. Swap execution on-chain
-9. Confirmation polling
-10. Trade push to maker SDK
-11. Rate limit enforcement
-12. Admin approval flow
-13. Signer key rotation
-14. Pool balance verification after swap
+2. Maker application → admin approval → API key generation
+3. Signer key registration
+4. Maker status & pool endpoint
+5. WebSocket connect + price-level streaming
+6. RFQ quote request (engine-signed)
+7. Trade record created
 
 ### Manual E2E Flow
 
@@ -997,7 +992,7 @@ curl https://hyperdex.onrender.com/api/makers
 - [x] Admin panel — maker application review + API key management
 - [x] Trade confirmation push service (WebSocket, retries for 5 min)
 - [x] Per-taker rate limiting by maker
-- [x] 14/14 smoke tests passing
+- [x] End-to-end smoke test (`scripts/smoke-test.ts`) passing
 
 ### Phase 2 — Protocol Maturation
 - [ ] Multiple token pairs (XLM/USDC, BTC/USDC via wrapped assets)
@@ -1035,7 +1030,7 @@ curl https://hyperdex.onrender.com/api/makers
 | Database | MongoDB (Atlas) | 6.x |
 | Maker SDK | Node.js + TypeScript (pluggable `MakerEngine`) | — |
 | ed25519 signing | `tweetnacl` | 1.x |
-| XDR serialization | `@stellar/stellar-sdk` | 16.x (frontend) · 13.x (maker-sdk) |
+| XDR serialization | `@stellar/stellar-sdk` | 16.x (frontend) · 15.x (backend + maker-sdk) — bumped for Stellar **Protocol 27** |
 | Price Oracle | CoinGecko + FX fallbacks (open.er-api, exchangerate-api) | — |
 | Frontend | Next.js (App Router) | 14 |
 | Styling | Tailwind CSS | 3.x |
@@ -1051,7 +1046,7 @@ curl https://hyperdex.onrender.com/api/makers
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feat/my-feature`
 3. Build contracts: `cargo build --target wasm32-unknown-unknown --release`
-4. Run the smoke test: `./scripts/smoke-test.sh` — all 14 steps must pass
+4. Run the smoke test: `npx ts-node scripts/smoke-test.ts` — all phases must pass
 5. Run TypeScript checks: `npx tsc --noEmit` in `backend/` and `frontend/`
 6. Submit a pull request with a clear description of the change
 

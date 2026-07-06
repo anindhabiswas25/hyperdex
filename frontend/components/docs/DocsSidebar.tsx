@@ -20,7 +20,8 @@ export const NAV_SECTIONS = [
       { slug: 'what-you-need',  label: 'What You Need to Trade' },
       { slug: 'first-swap',     label: 'Making Your First Swap' },
       { slug: 'maker-setup',    label: 'Setting Up as a Maker' },
-      { slug: 'vault-deposit',  label: 'Deposit Vault Inventory' },
+      { slug: 'pricing-engines',label: 'Pricing Engines' },
+      { slug: 'vault-deposit',  label: 'Deposit Pool Inventory' },
       { slug: 'troubleshoot',   label: 'Troubleshooting' },
     ],
   },
@@ -49,7 +50,7 @@ export const NAV_SECTIONS = [
     items: [
       { slug: 'programs',       label: 'Programs Overview' },
       { slug: 'pool-registry',  label: 'pool_registry' },
-      { slug: 'vault',          label: 'vault' },
+      { slug: 'vault',          label: 'maker_pool' },
       { slug: 'quote-verifier', label: 'quote_verifier' },
       { slug: 'fee-distributor',label: 'fee_distributor' },
     ],

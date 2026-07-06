@@ -37,7 +37,9 @@ MAKER (browser — visit 2):
 
 MAKER (terminal):
   1. npm run dev <makername>
-  2. SDK connects to HyperDEX and starts serving quotes
+  2. Set your ghost price when prompted (built-in engine) — or pass
+     `--engine=./my-engine.ts` to run your own pricing engine
+  3. SDK connects to HyperDEX and starts serving quotes
 ```
 
 ---
@@ -456,11 +458,17 @@ The step shows:
 ✓ Setup Complete!
 
 Start your maker server:
-  npm run dev   [Copy]
+  npm run dev <makername>   [Copy]
 
 Your server will connect to HyperDEX
 and start serving quotes automatically.
 ```
+
+> **Pricing is pluggable.** With no flag, the SDK runs the built-in
+> **ghost-price engine** and prompts you for a ghost price on startup. To run
+> your own pricing logic instead, pass a custom engine (note the `--`
+> separator): `npm run dev <makername> -- --engine=./my-engine.ts`.
+> See [PART G — Pricing Engines](#part-g--pricing-engines-choose-how-you-quote) below.
 
 ---
 
@@ -475,24 +483,35 @@ npm run dev alphafirm
 
 Replace `alphafirm` with your credential name (the part before `.cred` in the credentials folder).
 
+**Ghost-price prompt (built-in engine only):** before connecting, the SDK asks
+for your ghost price — the EURC you offer per 1 USDC. Type a number (e.g.
+`0.8788`) and press Enter. To skip the prompt in CI, pass `GHOST_PRICE=0.8788`
+as an env var. A custom engine (`--engine=...`) owns its own pricing, so this
+prompt is skipped.
+
 **Startup banner:**
 ```
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   HyperDEX Maker SDK  ● LIVE
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Maker:   AlphaFirm
-  Address: GALNCMRJ2GCQ34RH7L55HZLUCZ3EHDIKPWTNTWDGVJ4FJWCP5GDVA726
-  Pairs:   USDC↔EURC
-  Backend: ws://localhost:4000/ws/maker ✓
-  Port:    3001
+  Address: GALNCM…VA726
+  Pool:    CDXY…P4Q7
+  Backend: wss://hyperdex.onrender.com/ws/maker
+  Engine:  Built-in (ghost-price)      ← or: binance-engine.ts [custom]
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Ghost price: 1 USDC = 0.878800 EURC
+  Auto-bidding at ghost price on all RFQs...
+  Press Ctrl+C to disconnect | Ctrl+R to update ghost price
 ```
 
 The SDK is now:
 - Connected to HyperDEX backend via WebSocket
-- Streaming live price levels from the oracle
-- Responding to RFQ (Request for Quote) requests
-- Automatically signing quotes with your signer key
+- Streaming live price levels from your engine's `getLevels()` (every ~3s)
+- Responding to RFQ (Request for Quote) requests via your engine's `getQuote()`
+- Automatically signing quotes with your signer key (in the exact XDR the contract verifies)
+- Guarding against drift — the built-in engine warns when your ghost price is
+  >1% from the live oracle mid and **pauses quoting at >3%** so you don't get arbitraged
 
 ---
 
@@ -542,6 +561,56 @@ Output:
 npm run dev alphafirm
 npm run dev betafirm
 ```
+
+---
+
+## PART G — Pricing Engines (choose how you quote)
+
+The SDK handles all the infrastructure — WebSocket, API-key auth, ed25519 quote
+signing in the exact XDR the on-chain contract verifies, inventory reads, and
+trade confirmations. **You only decide how to price**, and that lives in a
+pluggable **MakerEngine**. An engine answers two questions:
+
+| Method | Called | Returns |
+|--------|--------|---------|
+| `getLevels()` | every ~3s | your resting book `{ sellLevels, buyLevels }` (empty arrays = go offline gracefully) |
+| `getQuote(ctx)` | on each RFQ | `amountOut` in **stroops** as a string, or `null` to skip this trade (no penalty) |
+| `onTradeConfirmed(trade)` *(optional)* | when a fill settles | refresh inventory, hedge on a CEX, log |
+
+### Tier 1 — Built-in ghost-price engine (default, no code)
+
+```bash
+npm run dev <makername>
+```
+
+Set one ghost price (EURC per USDC); the SDK auto-bids it, fee-adjusted, on
+every RFQ. It's gated by an **inventory check** (never quotes more than ~80% of
+your pool balance) and a **drift guard** (warns at >1% drift from the live oracle
+mid, pauses quoting at >3%). Press `Ctrl+R` to re-price, `Ctrl+C` to disconnect.
+
+### Tier 2 / 3 — Custom engine
+
+Run any engine file with `--engine`. **Note the `--` separator** — without it,
+npm swallows the flag:
+
+```bash
+npm run dev <makername> -- --engine=./examples/fixed-rate-engine.ts
+npm run dev <makername> -- --engine=./examples/binance-engine.ts
+npm run dev <makername> -- --engine=./path/to/your-engine.ts
+```
+
+A custom engine owns its full pricing logic, so the SDK skips the ghost-price
+prompt and `Ctrl+R`. If the file is missing or doesn't implement
+`getLevels`/`getQuote`, the SDK logs the error and **falls back to the built-in
+engine** — it won't crash. Confirm which one loaded from the `Engine:` line in
+the startup banner.
+
+Working templates live in `maker-sdk/examples/`. Full guides:
+- **`maker-sdk/CUSTOM_ENGINE.md`** — building a custom pricing engine
+- **`maker-sdk/TESTING_ENGINES.md`** — E2E-testing an engine + two key pitfalls
+  (get the rate **direction** right, and **check inventory** so you don't quote
+  size you can't fill — a custom engine is *not* auto-gated like the default one)
+- **`maker-sdk/src/types/MakerEngine.ts`** — the `MakerEngine` / `RfqContext` / `PriceLevels` types
 
 ---
 
@@ -618,12 +687,17 @@ This removes orphan makers (added by scripts, no PendingMaker record) so they re
 
 | Contract | Address |
 |----------|---------|
-| Pool Registry | `CCJHRG7A4O36MJ7473AKID4FY6YJAUWCMDFOCB5KUWOP5ZPXVKMKRIK7` |
-| Vault | `CAJBOJRTSXS7CLNOSMO23D2MFXKGKTL3XVQH56H5HKPD6V7SHAHT7SSB` |
-| Fee Distributor | `CBOQ5X23YTHT5NKB3EPW3Q3A77TRR4CQUYWEU4TA2XCNUKX57JTDYYJA` |
-| Quote Verifier | `CDBLP52CBG4D6IG26DGTO7G3APVU3UZAZXTXC52V6LK4H4WXFYOBDZSC` |
+| Pool Registry | `CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP` |
+| Quote Verifier | `CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN` |
+| Maker Pool Factory | `CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6` |
+| Fee Distributor | `CCQIZPZD7T2ZFYFTISMJ7GSPLK32L43EXJLHZM7JJX6ERXWO7DURJSYF` |
 | USDC SAC | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` |
-| EURC SAC | `CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X` |
+| EURC SAC | `CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ` |
+
+> Each maker gets their **own** `maker_pool` contract, deployed by the Maker Pool
+> Factory during on-chain registration (Step D3). There is no longer a single
+> shared "vault" — your pool address is shown in the dashboard Overview tab and
+> goes in your `.cred` file as `POOL_ADDRESS`.
 
 ---
 

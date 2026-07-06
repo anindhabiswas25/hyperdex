@@ -11,10 +11,10 @@ export default function ArchitecturePage() {
   ┌──────────────────────────────────────┐   ┌──────────────────────────────────────┐
   │            HyperDex Backend          │   │  pool_registry                       │
   │  • WebSocket hub for makers          │   │    └─ maker registry + signing keys   │
-  │  • Auction orchestration             │   │  vault                               │
-  │  • Best-bid selection                │   │    └─ token inventory + swap exec     │
-  │  • REST API for frontend             │   │  quote_verifier                      │
-  └──────────────┬───────────────────────┘   │    └─ sig verify + orchestration     │
+  │  • Auction orchestration             │   │  quote_verifier                      │
+  │  • Best-bid selection                │   │    └─ sig verify + orchestration     │
+  │  • REST API for frontend             │   │  maker_pool (one per maker)          │
+  └──────────────┬───────────────────────┘   │    └─ token inventory + swap exec     │
                  │ RFQ broadcast (WS)        │  fee_distributor                     │
   ┌──────────────▼───────────────────────┐   │    └─ fee accumulation + withdrawal  │
   │          Maker SDK (N makers)        │   └──────────────────────────────────────┘
@@ -36,8 +36,9 @@ export default function ArchitecturePage() {
           ['Maker SDK', 'Off-chain (each maker)', 'Prices swaps using oracle data, signs quotes with ed25519, submits bids to backend'],
           ['Frontend', 'Browser', 'Taker UI — connects Freighter wallet, starts auctions, shows results, submits signed quote on-chain'],
           ['pool_registry', 'Soroban contract', 'Stores which addresses are registered makers and what their hot signing keys are'],
-          ['vault', 'Soroban contract', 'Custodies maker token inventory; executes the actual atomic token swap on instruction from quote_verifier'],
-          ['quote_verifier', 'Soroban contract', 'Taker calls this — verifies ed25519 signature, checks expiry, calls vault and fee_distributor'],
+          ['quote_verifier', 'Soroban contract', 'Taker calls this — verifies ed25519 signature, checks expiry, calls the maker_pool and fee_distributor'],
+          ['maker_pool', 'Soroban contract (one per maker)', 'Custodies that maker’s token inventory; executes the atomic token swap on instruction from quote_verifier'],
+          ['maker_pool_factory', 'Soroban contract', 'Deploys a dedicated maker_pool per maker at registration (deterministic salt)'],
           ['fee_distributor', 'Soroban contract', 'Accumulates protocol fees per token; admin-controlled withdrawal to treasury'],
         ]}
       />

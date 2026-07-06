@@ -22,11 +22,16 @@
 ### Contract Addresses
 | Contract | Address |
 |----------|---------|
-| pool_registry | `CCJHRG7A4O36MJ7473AKID4FY6YJAUWCMDFOCB5KUWOP5ZPXVKMKRIK7` |
-| vault | `CAJBOJRTSXS7CLNOSMO23D2MFXKGKTL3XVQH56H5HKPD6V7SHAHT7SSB` |
-| quote_verifier | `CDBLP52CBG4D6IG26DGTO7G3APVU3UZAZXTXC52V6LK4H4WXFYOBDZSC` |
+| pool_registry | `CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP` |
+| quote_verifier | `CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN` |
+| maker_pool_factory | `CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6` |
+| fee_distributor | `CCQIZPZD7T2ZFYFTISMJ7GSPLK32L43EXJLHZM7JJX6ERXWO7DURJSYF` |
 | USDC SAC | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` |
-| EURC SAC | `CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X` |
+| EURC SAC | `CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ` |
+
+> There is no single shared "vault" anymore. Each maker has their **own**
+> `maker_pool` contract deployed by `maker_pool_factory` at registration — the
+> pool address is shown in the `/maker` dashboard and stored per-maker.
 
 ### Maker Credentials
 | Key | Value |
@@ -54,12 +59,18 @@ npm run dev
 ```
 Expected: `Server listening on port 4000`, `MongoDB connected`
 
-**Terminal 2 — Maker SDK**
+**Terminal 2 — Maker SDK** (requires a `credentials/<name>.cred` from `npm run setup` first)
 ```bash
 cd /home/asus/Project/HyperDex/maker-sdk
-npm run dev
+npm run dev <name>            # built-in ghost-price engine — prompts for a ghost price
+# or, non-interactive:
+GHOST_PRICE=0.8788 npm run dev <name>
+# or run a custom pricing engine (note the `--` separator):
+npm run dev <name> -- --engine=./examples/binance-engine.ts
 ```
-Expected: `Maker server listening on port 3001`, `Connected to backend WS`, `Price oracle initialized`
+Expected: the LIVE banner (Maker / Address / Pool / Backend / Engine), then
+`[WS] Connected to HyperDEX backend` and price levels streaming every ~3s.
+Pricing runs through a pluggable **MakerEngine** — see `maker-sdk/README.md`.
 
 **Terminal 3 — Frontend**
 ```bash
@@ -112,18 +123,15 @@ This writes the maker's signing key to the `pool_registry` Soroban contract so t
 7. Click **Register Market Maker**
 8. Freighter popup appears — verify:
    - Network: Testnet
-   - Contract: `CCJHRG7A4O36MJ7473AKID4FY6YJAUWCMDFOCB5KUWOP5ZPXVKMKRIK7`
+   - Contract: `CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP`
 9. Click **Approve**
 
 Expected: Success toast appears within 10–15 seconds. The maker is now registered on-chain.
 
-> **Alternative (script):** If the frontend is unavailable, run:
-> ```bash
-> cd /home/asus/Project/HyperDex/backend
-> MAKER_SECRET_KEY=SDLZVHAQNYI4OGE5BOIZLUEVOLCDT466MGZX37ICQBNE63WWTC53CWOC \
-> SIGNER_PUBLIC_KEY=f89265fbd7803601eb3a50a830f7ac0b3e5a3c490ec9705058e3a83311eca9d7 \
-> NODE_PATH=./node_modules npx ts-node --transpile-only --project tsconfig.json ../scripts/register-maker-onchain.ts
-> ```
+> **Note:** On-chain registration is now done through the `/maker` frontend page
+> (the maker signs it in Freighter). The old `register-maker-onchain.ts` script
+> has been removed. The public key you paste comes from `npm run setup`, which
+> writes it to `credentials/<name>.cred`.
 
 ---
 
@@ -153,22 +161,27 @@ sk_live_REDACTED_SEE_ADMIN_DASHBOARD
 
 ---
 
-### Step 1C — Configure Maker SDK `.env`
+### Step 1C — Configure Maker SDK credentials
 
-The file at `maker-sdk/.env` must contain the API key from Step 1B. Current contents:
+The SDK is no longer configured via a single `maker-sdk/.env`. Each maker has a
+`credentials/<name>.cred` file created by `npm run setup` (which prompts for the
+API key from Step 1B, generates the ed25519 keypair, and saves it — file perms
+600, **git-ignored**). Typical contents:
 
 ```env
-MAKER_ADDRESS=GALNCMRJ2GCQ34RH7L55HZLUCZ3EHDIKPWTNTWDGVJ4FJWCP5GDVA726
-SIGNER_PRIVATE_KEY=REDACTED_LEAKED_KEY_ROTATED
+MAKER_API_KEY=sk_live_...
+SIGNER_PRIVATE_KEY=<hex — ed25519 secret>
+MAKER_ADDRESS=G...
+POOL_ADDRESS=C...
 PORT=3001
-MAKER_NAME=HyperDEX MM
+BACKEND_WS_URL=wss://hyperdex.onrender.com/ws/maker
 USDC_CONTRACT=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
-EURC_CONTRACT=CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X
-BACKEND_WS_URL=ws://localhost:4000/ws/maker
-MAKER_API_KEY=sk_live_REDACTED_SEE_ADMIN_DASHBOARD
+EURC_CONTRACT=CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ
 ```
 
-If you generated a new API key in Step 1B, update `MAKER_API_KEY` and restart the maker SDK (Terminal 2).
+For a local backend, set `BACKEND_WS_URL=ws://localhost:4000/ws/maker`. If you
+rotate the API key in Step 1B, re-run `npm run setup` (or edit `MAKER_API_KEY`
+in the `.cred`) and restart the SDK (Terminal 2).
 
 ---
 
@@ -178,12 +191,16 @@ If you generated a new API key in Step 1B, update `MAKER_API_KEY` and restart th
 # Maker SDK is alive
 curl http://localhost:3001/health
 ```
-Expected:
+Expected (the SDK health payload now reports live oracle + pool state):
 ```json
 {
   "status": "ok",
   "maker": "GALNCMRJ2GCQ34RH7L55HZLUCZ3EHDIKPWTNTWDGVJ4FJWCP5GDVA726",
-  "public_key": "f89265fbd7803601eb3a50a830f7ac0b3e5a3c490ec9705058e3a83311eca9d7"
+  "connected": true,
+  "midRate": 0.8788,
+  "volatility": 0.0,
+  "vault": { "usdc": "1000.0000000", "eurc": "0.0000000" },
+  "oracle": { "midRate": 0.8788, "volatility": 0.0, "stale": false }
 }
 ```
 
@@ -211,9 +228,10 @@ curl http://localhost:4000/api/makers
 
 ---
 
-## PHASE 2 — Vault Deposit
+## PHASE 2 — Maker Pool Deposit
 
-The vault holds the maker's inventory. For the 20 EURC → USDC swap, the vault needs **USDC** (the taker pays EURC, the vault pays USDC).
+The maker's own `maker_pool` contract holds their inventory. For the 20 EURC →
+USDC swap, the pool needs **USDC** (the taker pays EURC, the pool pays USDC).
 
 ### Step 2A — Check Current Vault Inventory
 
@@ -244,17 +262,10 @@ Expected (current state):
 4. Enter amount (e.g. `500`) and click Deposit
 5. Approve in Freighter — wait ~10s for confirmation
 
-**Via script (if frontend unavailable):**
-```bash
-cd /home/asus/Project/HyperDex/backend
-MAKER_SECRET_KEY=SDLZVHAQNYI4OGE5BOIZLUEVOLCDT466MGZX37ICQBNE63WWTC53CWOC \
-USDC_CONTRACT_ADDRESS=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA \
-EURC_CONTRACT_ADDRESS=CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X \
-VAULT_CONTRACT_ADDRESS=CAJBOJRTSXS7CLNOSMO23D2MFXKGKTL3XVQH56H5HKPD6V7SHAHT7SSB \
-NODE_PATH=./node_modules npx ts-node --transpile-only --project tsconfig.json ../scripts/deposit-vault-inventory.ts
-```
-
-The script deposits **1000 USDC** by default (approve + deposit = 2 on-chain transactions, ~30s total).
+Deposits go through your own `maker_pool` contract (each token is a 2-TX
+`approve` + `deposit` flow, ~30s total). The standalone
+`deposit-vault-inventory.ts` script has been removed — use the `/maker`
+Inventory tab, which builds and signs both transactions in Freighter.
 
 ---
 
@@ -288,7 +299,7 @@ Confirm the full quoting pipeline works before opening the browser:
 curl -X POST http://localhost:4000/api/quote \
   -H 'Content-Type: application/json' \
   -d '{
-    "tokenIn":  "CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X",
+    "tokenIn":  "CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ",
     "tokenOut": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
     "amountIn": "200000000",
     "takerAddress": "GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A"
@@ -305,7 +316,7 @@ Expected response (HTTP 200):
     "quoteId": "...",
     "makerAddress": "GALNCMRJ2GCQ34RH7L55HZLUCZ3EHDIKPWTNTWDGVJ4FJWCP5GDVA726",
     "takerAddress": "GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A",
-    "tokenIn":  "CDOIV56NSBNVNZN4XPTOT7JVRK6AW4RUISEPYUZYIIKMVIY7X3OH4S5X",
+    "tokenIn":  "CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ",
     "tokenOut": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
     "amountIn": "200000000",
     "amountOut": "~218000000",
@@ -358,7 +369,7 @@ If HTTP 503 "No liquidity" → maker SDK is not connected (re-check Phase 1D).
 
 12. Freighter popup appears — verify before approving:
     - Network: **Testnet**
-    - Contract called: `CDBLP52CBG4D6IG26DGTO7G3APVU3UZAZXTXC52V6LK4H4WXFYOBDZSC` (quote_verifier)
+    - Contract called: `CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN` (quote_verifier)
     - Fee: less than 1 XLM
 
 13. Click **Approve** in Freighter
@@ -414,7 +425,7 @@ Expected: TX Status = **SUCCESS**, contract invoked = `quote_verifier`.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `activeMakers: 0` in health | Maker SDK not connected | Restart `npm run dev` in maker-sdk; check `MAKER_API_KEY` in `.env` matches MongoDB |
+| `activeMakers: 0` in health | Maker SDK not connected | Restart `npm run dev <name>` in maker-sdk; check `MAKER_API_KEY` in `credentials/<name>.cred` matches MongoDB |
 | `503 No liquidity` on quote | Maker SDK down or no price levels | Check `curl localhost:3001/health`, restart SDK |
 | Freighter shows "Simulation failed" | Quote expired or vault empty | Wait for fresh quote; run deposit script to refill USDC |
 | EURC balance shows 0 | Circle faucet not processed | Wait 1–2 min, refresh Freighter, check explorer for incoming EURC |
@@ -429,22 +440,22 @@ Expected: TX Status = **SUCCESS**, contract invoked = `quote_verifier`.
 ```
 MAKER SIDE
 ──────────
-1. Register on-chain  →  pool_registry contract stores signer pubkey
+1. Register on-chain  →  pool_registry contract stores signer pubkey (via /maker)
 2. Register in DB     →  MongoDB stores maker + issues API key
-3. Configure SDK      →  maker-sdk/.env gets MAKER_API_KEY
-4. Start SDK          →  SDK connects via WebSocket, sends price levels every 1s
+3. Configure SDK      →  npm run setup writes credentials/<name>.cred
+4. Start SDK          →  npm run dev <name>; engine.getLevels() streams the book every ~3s
 
-VAULT
-─────
+MAKER POOL
+──────────
 5. Check USDC balance →  10000000000 stroops (1000 USDC) already deposited
-6. (Optional) top up  →  frontend Deposit UI or deposit-vault-inventory.ts script
+6. (Optional) top up  →  /maker Inventory tab (2-TX approve + deposit in Freighter)
 
 USER SIDE
 ─────────
 7. Get EURC           →  Circle testnet faucet → taker address
 8. Open /swap         →  select EURC → USDC, enter 20
-9. Quote auto-fetches →  backend dispatches RFQ to maker via WS (750ms timeout)
-10. Maker responds    →  signs quote with ed25519 signer key
+9. Quote auto-fetches →  backend opens a 30s sealed-bid RFQ auction to connected makers
+10. Maker responds    →  engine.getQuote() returns amountOut; SDK signs it with ed25519
 11. User confirms     →  Freighter signs execute_quote TX
 12. On-chain settle   →  quote_verifier validates signature, transfers tokens
 13. Backend confirms  →  trade status updated to "confirmed"

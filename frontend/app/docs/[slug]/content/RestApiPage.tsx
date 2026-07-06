@@ -2,20 +2,23 @@ import { H1, P, Mono } from '@/components/docs/DocsPrimitives';
 
 export default function RestApiPage() {
   const endpoints = [
-    { method:'GET',  path:'/health',                  auth:'—',          desc:'System health. Returns active maker count and DB status.',      body:'', response:'{ "status":"ok", "activeMakers":1, "dbStatus":"connected" }' },
-    { method:'POST', path:'/api/auctions/start',       auth:'—',          desc:'Opens a 30-second sealed-bid auction for a swap.',              body:'{ "tokenIn":"EURC_SAC", "tokenOut":"USDC_SAC", "amountIn":200000000, "taker":"GABIR…" }', response:'{ "auctionId":"uuid", "expiresAt":1716000030 }' },
-    { method:'GET',  path:'/api/auctions/:id/result',  auth:'—',          desc:'Returns the winning quote once the auction window closes.',      body:'', response:'{ "bestQuote":{...}, "quotesReceived":2, "makerName":"Alpha MM" }' },
-    { method:'POST', path:'/api/auctions/:id/bid',     auth:'Maker API key',  desc:'Submit a sealed bid for an active auction.',                 body:'{ "quote":{...}, "signature":"hex" }', response:'{ "accepted":true }' },
-    { method:'POST', path:'/api/makers/apply',         auth:'—',          desc:'Submit a maker registration application.',                       body:'{ "address":"G…", "name":"My MM", "signerPublicKey":"hex", "webhookUrl":"http://…" }', response:'{ "applicationId":"uuid", "status":"pending" }' },
-    { method:'GET',  path:'/api/admin/pending',        auth:'Admin wallet', desc:'Lists all pending maker applications.',                        body:'', response:'{ "applications":[...], "total":1 }' },
-    { method:'POST', path:'/api/admin/approve/:id',    auth:'Admin wallet', desc:'Approves an application and returns an API key.',              body:'', response:'{ "apiKey":"sk_live_xxx" }' },
-    { method:'POST', path:'/api/admin/reject/:id',     auth:'Admin wallet', desc:'Rejects a maker application.',                                body:'{ "reason":"Insufficient inventory" }', response:'{ "status":"rejected" }' },
+    { method:'GET',  path:'/health',                          auth:'—',          desc:'System health. Returns active maker count and DB status.',      body:'', response:'{ "status":"ok", "activeMakers":1, "priceBookEntries":1, "dbStatus":"connected" }' },
+    { method:'POST', path:'/api/quote',                       auth:'—',          desc:'Single-shot quote — dispatches an RFQ and returns the best signed quote.', body:'{ "tokenIn":"EURC_SAC", "tokenOut":"USDC_SAC", "amountIn":"200000000", "takerAddress":"GABIR…" }', response:'{ "success":true, "quote":{ "quoteId":"…", "amountOut":"…", "signature":"hex", … } }' },
+    { method:'POST', path:'/api/quote/start',                 auth:'—',          desc:'Opens a 30-second sealed-bid auction to all connected makers.', body:'{ "tokenIn":"EURC_SAC", "tokenOut":"USDC_SAC", "amountIn":"200000000", "takerAddress":"GABIR…" }', response:'{ "auctionId":"uuid", "makerCount":2 }' },
+    { method:'GET',  path:'/api/quote/result/:auctionId',     auth:'—',          desc:'Poll until the auction window closes; returns the winning quote.', body:'', response:'{ "status":"completed", "bestQuote":{…}, "quotesReceived":2, "makerName":"Alpha MM" }' },
+    { method:'POST', path:'/api/quote/confirm',               auth:'—',          desc:'Notify the backend of the on-chain settlement tx hash.',        body:'{ "quoteId":"…", "txHash":"…", "takerAddress":"G…" }', response:'{ "success":true }' },
+    { method:'GET',  path:'/api/makers',                      auth:'—',          desc:'Lists all makers with WebSocket connection status.',            body:'', response:'[ { "address":"G…", "name":"Alpha MM", "connectionStatus":"connected", "poolAddress":"C…" } ]' },
+    { method:'GET',  path:'/api/makers/:address/inventory',   auth:'—',          desc:'Returns a maker pool’s USDC + EURC balances.',              body:'', response:'{ "usdc":"1000.0000000", "eurc":"500.0000000", "poolAddress":"C…" }' },
+    { method:'POST', path:'/api/makers/apply',                auth:'—',          desc:'Submit a maker registration application.',                       body:'{ "stellarAddress":"G…", "name":"My MM", "contactEmail":"…", "supportedPairs":[…] }', response:'{ "applicationId":"uuid", "status":"pending" }' },
+    { method:'GET',  path:'/api/admin/pending',               auth:'Admin wallet', desc:'Lists all pending maker applications.',                        body:'', response:'{ "applications":[…], "total":1 }' },
+    { method:'POST', path:'/api/admin/pending/:id/approve',   auth:'Admin wallet', desc:'Approves an application and returns a one-time API key.',       body:'', response:'{ "apiKey":"sk_live_xxx" }' },
+    { method:'POST', path:'/api/admin/pending/:id/reject',    auth:'Admin wallet', desc:'Rejects a maker application.',                                body:'{ "reason":"Insufficient inventory" }', response:'{ "status":"rejected" }' },
   ];
 
   return (
     <>
       <H1 tag="API Reference">REST Endpoints</H1>
-      <P>The backend exposes a REST API at <Mono>http://localhost:4000</Mono>. Maker endpoints require an <Mono>Authorization: Bearer sk_live_xxx</Mono> header.</P>
+      <P>The backend exposes a REST API — <Mono>http://localhost:4000</Mono> locally, or <Mono>https://hyperdex.onrender.com</Mono> live. Maker <strong>bids are sent over the WebSocket</strong> (not REST); admin endpoints are gated to the admin wallet. Amounts are in stroops (1 token = 1e7).</P>
 
       {endpoints.map(ep => (
         <div key={ep.path + ep.method} className="border border-black/10 rounded-2xl overflow-hidden mb-4">

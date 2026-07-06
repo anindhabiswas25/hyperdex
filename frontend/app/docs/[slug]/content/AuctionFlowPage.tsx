@@ -26,7 +26,7 @@ export default function AuctionFlowPage() {
   │──────────────────────────────────────────────────────▶execute_quote()    │
   │                        │                           │  ├─ verify ed25519   │
   │                        │                           │  ├─ check expiry     │
-  │                        │                           │  ├─ vault.swap()     │
+  │                        │                           │  ├─ maker_pool.swap()     │
   │                        │                           │  └─ fee_distributor  │
   │◀──────────────────────────────────────────────────────tx confirmed ~5s────│`}</Code>
     </>

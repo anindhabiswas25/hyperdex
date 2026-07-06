@@ -7,7 +7,7 @@ export default function QuoteVerifierPage() {
       <P>The <Mono>quote_verifier</Mono> is the taker-facing entry point and the brain of the settlement layer. It is the only contract takers interact with. It coordinates all other contracts.</P>
 
       <H2 id="why-entry-point">Why it is the entry point</H2>
-      <P>Separating verification logic from custody (vault) means the vault can be kept simple and auditable — it only does token movements. The quote_verifier can be upgraded or extended without changing the vault&apos;s token custody logic.</P>
+      <P>Separating verification logic from custody (the per-maker <Mono>maker_pool</Mono>) means each pool can be kept simple and auditable — it only does token movements. The quote_verifier can be upgraded or extended without changing the pools&apos; token custody logic.</P>
 
       <H2 id="invariants">Invariants it enforces</H2>
       <Ul>
@@ -23,13 +23,12 @@ export default function QuoteVerifierPage() {
         headers={['Function', 'Caller', 'Description']}
         rows={[
           ['execute_quote(quote, signature)', 'Taker', 'The main function — verifies and settles a swap'],
-          ['get_fee_bps()', 'Anyone', 'Returns current protocol fee in basis points'],
+          ['get_protocol_fee()', 'Anyone', 'Returns current protocol fee in basis points'],
           ['set_fee_bps(bps)', 'Admin', 'Updates protocol fee (max 100 bps = 1%)'],
-          ['set_vault(address)', 'Admin', 'Updates vault contract address (for upgrades)'],
-          ['set_registry(address)', 'Admin', 'Updates pool_registry address (for upgrades)'],
+          ['initialize(registry, factory, fee_distributor, fee_bps)', 'Admin', 'One-time wiring of registry, pool factory and fee distributor'],
         ]}
       />
-      <P><strong>Address:</strong> <Mono>CDBLP52CBG4D6IG26DGTO7G3APVU3UZAZXTXC52V6LK4H4WXFYOBDZSC</Mono></P>
+      <P><strong>Address:</strong> <Mono>CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN</Mono></P>
     </>
   );
 }

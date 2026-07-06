@@ -12,7 +12,7 @@ export default function MevPage() {
         <Li><strong>No visible pending price:</strong> The taker&apos;s intended trade is not visible on-chain until after it is settled. There is no &quot;swap X for Y at price Z&quot; sitting in a mempool.</Li>
         <Li><strong>Price locked at quote time:</strong> By the time the taker submits the transaction, the price is already cryptographically fixed in the signed quote. A frontrunner cannot change the rate the taker receives.</Li>
         <Li><strong>No on-chain price oracle:</strong> AMM-based DEXes expose their price through the bonding curve state. HyperDex has no on-chain price — nothing for a sandwich bot to manipulate.</Li>
-        <Li><strong>Direct maker settlement:</strong> Trades go directly between taker and maker vault. There is no pool to drain or rebalance.</Li>
+        <Li><strong>Direct maker settlement:</strong> Trades go directly between the taker and the maker&apos;s own maker_pool. There is no shared AMM pool to drain or rebalance.</Li>
       </Ul>
     </>
   );

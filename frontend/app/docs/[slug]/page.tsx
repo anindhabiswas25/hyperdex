@@ -10,6 +10,7 @@ import ArchitecturePage from './content/ArchitecturePage';
 import WhatYouNeedPage from './content/WhatYouNeedPage';
 import FirstSwapPage from './content/FirstSwapPage';
 import MakerSetupPage from './content/MakerSetupPage';
+import PricingEnginesPage from './content/PricingEnginesPage';
 import VaultDepositPage from './content/VaultDepositPage';
 import TroubleshootPage from './content/TroubleshootPage';
 import RfqPage from './content/RfqPage';
@@ -39,6 +40,7 @@ const PAGE_MAP: Record<string, React.ComponentType> = {
   'what-you-need':   WhatYouNeedPage,
   'first-swap':      FirstSwapPage,
   'maker-setup':     MakerSetupPage,
+  'pricing-engines': PricingEnginesPage,
   'vault-deposit':   VaultDepositPage,
   'troubleshoot':    TroubleshootPage,
   'rfq':             RfqPage,

@@ -3,6 +3,7 @@ import {
   STELLAR_RPC_URL,
   QUOTE_VERIFIER_CONTRACT,
   POOL_REGISTRY_CONTRACT,
+  FEE_DISTRIBUTOR_CONTRACT,
   USDC_CONTRACT,
   EURC_CONTRACT,
   FREIGHTER_NETWORK,
@@ -161,6 +162,73 @@ export async function buildRegisterMakerTx(makerAddress: string, signerKey: stri
   return rpc.assembleTransaction(tx, simResult).build().toXDR();
 }
 
+
+/**
+ * Read a SAC token balance held by a *contract* address (e.g. fee_distributor)
+ * straight from ledger storage — no source account or wallet needed.
+ * SACs store contract-holder balances under the key ["Balance", Address].
+ */
+export async function getContractTokenBalance(
+  tokenContract: string,
+  holderContract: string,
+): Promise<bigint> {
+  const sdk = await getSdk();
+  const { Address, xdr, rpc, scValToNative } = sdk;
+
+  const rpcServer = new rpc.Server(STELLAR_RPC_URL);
+  const key = xdr.ScVal.scvVec([
+    xdr.ScVal.scvSymbol('Balance'),
+    new Address(holderContract).toScVal(),
+  ]);
+
+  try {
+    const entry = await rpcServer.getContractData(tokenContract, key, rpc.Durability.Persistent);
+    const val = entry.val.contractData().val();
+    const native = scValToNative(val) as { amount?: bigint } | bigint;
+    if (typeof native === 'bigint') return native;
+    return native.amount ?? 0n;
+  } catch {
+    // No balance entry means the contract has never received this token.
+    return 0n;
+  }
+}
+
+/** Accumulated protocol fees currently sitting in the fee_distributor contract. */
+export async function getProtocolFeeBalances(): Promise<{ usdc: bigint; eurc: bigint }> {
+  if (!FEE_DISTRIBUTOR_CONTRACT) return { usdc: 0n, eurc: 0n };
+  const [usdc, eurc] = await Promise.all([
+    getContractTokenBalance(USDC_CONTRACT, FEE_DISTRIBUTOR_CONTRACT),
+    getContractTokenBalance(EURC_CONTRACT, FEE_DISTRIBUTOR_CONTRACT),
+  ]);
+  return { usdc, eurc };
+}
+
+/** Build fee_distributor.withdraw_fees(token) — must be signed by the admin wallet. */
+export async function buildWithdrawFeesTx(adminAddress: string, tokenContract: string): Promise<string> {
+  const sdk = await getSdk();
+  const { Contract, TransactionBuilder, Address, rpc } = sdk;
+
+  const rpcServer = new rpc.Server(STELLAR_RPC_URL);
+  const account = await rpcServer.getAccount(adminAddress);
+
+  const contract = new Contract(FEE_DISTRIBUTOR_CONTRACT);
+  const op = contract.call('withdraw_fees', new Address(tokenContract).toScVal());
+
+  const tx = new TransactionBuilder(account, {
+    fee: MAX_FEE,
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(op)
+    .setTimeout(60)
+    .build();
+
+  const simResult = await rpcServer.simulateTransaction(tx);
+  if (rpc.Api.isSimulationError(simResult)) {
+    throw new Error(`Simulation failed: ${(simResult as { error: string }).error}`);
+  }
+
+  return rpc.assembleTransaction(tx, simResult).build().toXDR();
+}
 
 export async function submitTransaction(signedXdr: string): Promise<string> {
   const sdk = await getSdk();

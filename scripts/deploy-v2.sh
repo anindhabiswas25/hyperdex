@@ -9,13 +9,20 @@
 
 set -euo pipefail
 
-export STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
-
-NETWORK="testnet"
+# Deploy target: NETWORK=mainnet bash scripts/deploy-v2.sh (defaults to testnet).
+# On mainnet you must also override USDC/EURC with the Circle mainnet SAC
+# addresses and should set TREASURY to a dedicated wallet.
+NETWORK="${NETWORK:-testnet}"
+if [ "$NETWORK" = "mainnet" ]; then
+  export STELLAR_NETWORK_PASSPHRASE="Public Global Stellar Network ; September 2015"
+  export STELLAR_RPC_URL="${STELLAR_RPC_URL:-https://mainnet.sorobanrpc.com}"
+else
+  export STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
+fi
 ADMIN_IDENTITY="${ADMIN_IDENTITY:-admin}"
 
-USDC="CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA"
-EURC="CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ"
+USDC="${USDC:-CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA}"
+EURC="${EURC:-CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ}"
 PROTOCOL_FEE_BPS=10
 
 ADMIN_ADDRESS=$(stellar keys address "$ADMIN_IDENTITY" 2>/dev/null || {
@@ -33,8 +40,11 @@ echo ""
 
 # 1. Build all contracts
 echo ">> Building contracts..."
-cargo build --target wasm32-unknown-unknown --release --quiet
-WASM_DIR="target/wasm32-unknown-unknown/release"
+# Use the stellar CLI build pipeline (wasm32v1-none + spec shaking): binaries
+# come out ~2x smaller than plain cargo wasm32-unknown-unknown, which halves
+# mainnet upload fees and ongoing rent.
+stellar contract build
+WASM_DIR="target/wasm32v1-none/release"
 
 echo ">> Optimizing WASMs..."
 for contract in pool_registry fee_distributor maker_pool maker_pool_factory quote_verifier; do
@@ -163,6 +173,7 @@ update_env "$BACKEND_ENV" "ADMIN_ADDRESS" "$ADMIN_ADDRESS"
 update_env "$FRONTEND_ENV" "NEXT_PUBLIC_POOL_REGISTRY_CONTRACT" "$POOL_REGISTRY"
 update_env "$FRONTEND_ENV" "NEXT_PUBLIC_QUOTE_VERIFIER_CONTRACT" "$QUOTE_VERIFIER"
 update_env "$FRONTEND_ENV" "NEXT_PUBLIC_MAKER_POOL_FACTORY_ADDRESS" "$MAKER_POOL_FACTORY"
+update_env "$FRONTEND_ENV" "NEXT_PUBLIC_FEE_DISTRIBUTOR_CONTRACT" "$FEE_DISTRIBUTOR"
 update_env "$FRONTEND_ENV" "NEXT_PUBLIC_ADMIN_ADDRESS" "$ADMIN_ADDRESS"
 
 # Remove old vault references

@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Toast from '@/components/Toast';
-import { USDC_CONTRACT, EURC_CONTRACT, EXPLORER_BASE } from '@/lib/constants';
+import {
+  USDC_CONTRACT,
+  EURC_CONTRACT,
+  EXPLORER_BASE,
+  FEE_DISTRIBUTOR_CONTRACT,
+  ADMIN_ADDRESS,
+} from '@/lib/constants';
 import {
   fetchAdminMakers,
   fetchHealth,
@@ -13,15 +19,19 @@ import {
 } from '@/lib/api';
 import {
   buildRegisterMakerTx,
+  buildWithdrawFeesTx,
+  getProtocolFeeBalances,
   submitTransaction,
+  submitAndWait,
   connectFreighter,
   getFreighterAddress,
   isFreighterInstalled,
   signWithFreighter,
+  stroopsToHuman,
 } from '@/lib/stellar';
 import type { ToastState, AdminMakerRecord, HealthStatus } from '@/lib/types';
 
-type Tab = 'makers' | 'register' | 'system';
+type Tab = 'makers' | 'register' | 'fees' | 'system';
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('makers');
@@ -55,7 +65,7 @@ export default function AdminPage() {
 
           {/* Tab nav */}
           <div className="flex border-b border-black/8 mt-0">
-            {(['makers', 'register', 'system'] as Tab[]).map(t => (
+            {(['makers', 'register', 'fees', 'system'] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -65,7 +75,7 @@ export default function AdminPage() {
                     : 'border-transparent text-ink-muted hover:text-ink'
                 }`}
               >
-                {t === 'register' ? 'Register Maker' : t === 'makers' ? 'All Makers' : 'System'}
+                {t === 'register' ? 'Register Maker' : t === 'makers' ? 'All Makers' : t === 'fees' ? 'Protocol Fees' : 'System'}
               </button>
             ))}
           </div>
@@ -73,6 +83,7 @@ export default function AdminPage() {
           <div className="pt-8">
             {tab === 'makers'   && <MakersTab showToast={showToast} />}
             {tab === 'register' && <RegisterTab showToast={showToast} />}
+            {tab === 'fees'     && <FeesTab showToast={showToast} />}
             {tab === 'system'   && <SystemTab />}
           </div>
         </div>
@@ -571,6 +582,213 @@ function RegisterTab({ showToast }: { showToast: (m: string, t: ToastState['type
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Protocol Fees Tab ──────────────────────────────────────────── */
+
+function FeesTab({ showToast }: { showToast: (m: string, t: ToastState['type']) => void }) {
+  const [balances, setBalances]   = useState<{ usdc: bigint; eurc: bigint } | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [withdrawing, setWithdrawing] = useState<string | null>(null);
+  const [txHash, setTxHash]       = useState<string | null>(null);
+
+  const [walletAddress, setWalletAddress]           = useState<string | null>(null);
+  const [freighterInstalled, setFreighterInstalled] = useState<boolean | null>(null);
+
+  const isAdminWallet = !ADMIN_ADDRESS || walletAddress === ADMIN_ADDRESS;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setBalances(await getProtocolFeeBalances());
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'Failed to load fee balances', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    load();
+    isFreighterInstalled().then(setFreighterInstalled);
+    getFreighterAddress().then(a => { if (a) setWalletAddress(a); }).catch(() => {});
+  }, [load]);
+
+  const handleConnect = async () => {
+    try {
+      const addr = await connectFreighter();
+      setWalletAddress(addr);
+      showToast(`Connected: ${addr.slice(0, 6)}…${addr.slice(-4)}`, 'success');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'Connection failed', 'error');
+    }
+  };
+
+  const handleWithdraw = async (tokenContract: string, symbol: string) => {
+    if (!walletAddress) { showToast('Connect the admin wallet first', 'error'); return; }
+    setWithdrawing(symbol);
+    setTxHash(null);
+    try {
+      const xdr    = await buildWithdrawFeesTx(walletAddress, tokenContract);
+      const signed = await signWithFreighter(xdr);
+      const hash   = await submitAndWait(signed);
+      setTxHash(hash);
+      showToast(`${symbol} fees withdrawn to treasury!`, 'success');
+      await load();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Withdrawal failed';
+      // Old (pre-fix) fee_distributor: internal counter is 0, so it panics
+      // NoFeesToWithdraw even when tokens are present.
+      if (/Error\(Contract, #[34]\)/.test(msg)) {
+        showToast(
+          'Contract reports no withdrawable fees. If balances above are non-zero, this deployment has the fee-accounting bug — redeploy the fixed fee_distributor.',
+          'error',
+        );
+      } else {
+        showToast(msg, 'error');
+      }
+    } finally {
+      setWithdrawing(null);
+    }
+  };
+
+  const tokens = [
+    { symbol: 'USDC', contract: USDC_CONTRACT, amount: balances?.usdc ?? 0n },
+    { symbol: 'EURC', contract: EURC_CONTRACT, amount: balances?.eurc ?? 0n },
+  ];
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+
+      {/* Accumulated balances */}
+      <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="font-display text-xl font-bold text-ink">Accumulated Protocol Fees</h2>
+          <button
+            onClick={load}
+            className="text-xs font-semibold text-ink-muted hover:text-ink transition-colors"
+          >
+            ↺ Refresh
+          </button>
+        </div>
+        <p className="text-sm text-ink-muted mb-6">
+          Swap fees collect in the{' '}
+          <code className="font-mono text-xs text-ink">fee_distributor</code> contract until
+          withdrawn to the treasury wallet by the admin.
+        </p>
+
+        {!FEE_DISTRIBUTOR_CONTRACT ? (
+          <p className="text-sm text-red-600">
+            NEXT_PUBLIC_FEE_DISTRIBUTOR_CONTRACT is not set — add it to frontend/.env.local
+          </p>
+        ) : loading ? (
+          <div className="flex items-center gap-2 text-ink-muted text-sm">
+            <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            Loading balances…
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            {tokens.map(({ symbol, contract, amount }) => (
+              <div key={symbol} className="bg-cream border border-black/8 rounded-xl p-5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-ink-muted mb-1">
+                  {symbol}
+                </p>
+                <p className="font-display text-2xl font-bold text-ink mb-4 break-all">
+                  {stroopsToHuman(amount)}
+                </p>
+                <button
+                  onClick={() => handleWithdraw(contract, symbol)}
+                  disabled={withdrawing !== null || amount === 0n || !walletAddress || !isAdminWallet}
+                  className="w-full py-2.5 font-display text-xs font-bold bg-navy text-white rounded-lg hover:bg-navy-light transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  {withdrawing === symbol && (
+                    <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  )}
+                  {withdrawing === symbol ? 'Withdrawing…' : `Withdraw ${symbol}`}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {txHash && (
+          <div className="mt-4 flex items-center gap-3 bg-lavender/30 border border-lavender-mid rounded-xl px-4 py-3">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C1B2E" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <div>
+              <p className="text-xs font-semibold text-navy mb-0.5">Withdrawal confirmed</p>
+              <a
+                href={`${EXPLORER_BASE}/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-ink-muted hover:text-ink transition-colors"
+              >
+                View on Explorer →
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Admin wallet */}
+      <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-6">
+        <h3 className="font-display text-lg font-bold text-ink mb-1">Admin Wallet</h3>
+        <p className="text-sm text-ink-muted mb-4">
+          Withdrawals must be signed by the fee_distributor admin
+          {ADMIN_ADDRESS && (
+            <> (<code className="font-mono text-xs text-ink">{ADMIN_ADDRESS.slice(0, 6)}…{ADMIN_ADDRESS.slice(-6)}</code>)</>
+          )}.
+        </p>
+
+        {walletAddress ? (
+          <div className="flex items-center justify-between bg-cream border border-black/10 px-4 py-3 rounded-xl">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-ink-muted mb-0.5">
+                Connected Wallet
+              </p>
+              <p className="font-mono text-sm text-ink">{walletAddress}</p>
+              {!isAdminWallet && (
+                <p className="text-xs text-red-600 mt-1">
+                  ⚠ This is not the admin wallet — withdrawals will be rejected on-chain
+                </p>
+              )}
+            </div>
+            <div className={`w-2 h-2 rounded-full shrink-0 ${isAdminWallet ? 'bg-green-500' : 'bg-red-500'}`} />
+          </div>
+        ) : freighterInstalled === false ? (
+          <a
+            href="https://www.freighter.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full py-3 text-center font-display text-sm font-bold text-navy border border-navy/20 rounded-xl hover:bg-lavender/30 transition-colors"
+          >
+            Install Freighter Wallet
+          </a>
+        ) : (
+          <button
+            onClick={handleConnect}
+            className="w-full py-3 font-display text-sm font-bold border border-black/12 text-ink-muted rounded-xl hover:text-ink hover:border-black/20 transition-colors"
+          >
+            Connect Admin Wallet
+          </button>
+        )}
+      </div>
+
+      {/* Contract info */}
+      <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-5 space-y-3">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+          Fee Flow
+        </p>
+        <InfoRow label="Fee Distributor" value={FEE_DISTRIBUTOR_CONTRACT || '—'} mono />
+        <InfoRow label="Treasury"        value={ADMIN_ADDRESS || 'set at deploy (initialize)'} mono />
+        <p className="text-xs text-ink-muted pt-1">
+          <code className="font-mono text-ink">withdraw_fees</code> sweeps the contract&apos;s full
+          balance of a token to the treasury — there are no partial withdrawals.
+        </p>
+      </div>
     </div>
   );
 }

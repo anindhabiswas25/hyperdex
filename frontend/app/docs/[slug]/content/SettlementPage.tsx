@@ -7,7 +7,7 @@ export default function SettlementPage() {
     { n: '3', title: 'Quote not expired', desc: 'Compare quote.expiry against the current ledger timestamp. Reject if expired.' },
     { n: '4', title: 'Taker matches invoker', desc: 'Verify that the transaction invoker matches quote.taker. Quotes are non-transferable — only the specific taker can use a quote.' },
     { n: '5', title: 'Quote ID not replayed', desc: 'Check a spent-quote ledger set. Reject if quote_id has already been used. Each quote can only settle once.' },
-    { n: '6', title: 'Execute vault swap', desc: 'Call vault.execute_swap(quote): move amount_in from taker to vault, move amount_out from vault to taker.' },
+    { n: '6', title: 'Execute pool swap', desc: "Call the maker's maker_pool.execute_swap(quote): move amount_in from taker to the pool, move amount_out from the pool to taker." },
     { n: '7', title: 'Collect fee', desc: 'Calculate fee_amount = amount_out × fee_bps / 10000. Call fee_distributor.collect_fee(token_out, fee_amount).' },
   ];
 

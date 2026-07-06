@@ -7,7 +7,7 @@ export default function FeeDistributorPage() {
       <P>The <Mono>fee_distributor</Mono> is a simple accounting contract that accumulates protocol fees and provides a controlled withdrawal path to the treasury.</P>
 
       <H2 id="design-rationale">Design rationale</H2>
-      <P>Separating fee collection from vault custody means treasury withdrawal operations never touch maker inventory. An admin action on fee_distributor cannot accidentally affect taker or maker funds held in the vault.</P>
+      <P>Separating fee collection from pool custody means treasury withdrawal operations never touch maker inventory. An admin action on fee_distributor cannot accidentally affect taker or maker funds held in a maker_pool.</P>
 
       <H2 id="functions">Functions</H2>
       <Table
@@ -20,7 +20,7 @@ export default function FeeDistributorPage() {
         ]}
       />
       <P><strong>Current fee rate:</strong> 10 bps (0.10%) of <Mono>amount_out</Mono></P>
-      <P><strong>Address:</strong> <Mono>CBOQ5X23YTHT5NKB3EPW3Q3A77TRR4CQUYWEU4TA2XCNUKX57JTDYYJA</Mono></P>
+      <P><strong>Address:</strong> <Mono>CCQIZPZD7T2ZFYFTISMJ7GSPLK32L43EXJLHZM7JJX6ERXWO7DURJSYF</Mono></P>
     </>
   );
 }

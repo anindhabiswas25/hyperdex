@@ -1,11 +1,22 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype,
+    contract, contracterror, contractimpl, contracttype, panic_with_error,
     Address, BytesN, Env, Vec,
 };
 
 use soroban_sdk::contractclient;
+
+const LEDGER_THRESHOLD: u32 = 1_000_000;
+const LEDGER_BUMP: u32 = 1_500_000;
+
+#[contracterror]
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Error {
+    NotInitialized = 1,
+    AlreadyInitialized = 2,
+    PoolAlreadyDeployed = 3,
+}
 
 // Cross-contract client for MakerPool
 #[contractclient(name = "MakerPoolClient")]
@@ -43,10 +54,17 @@ enum DataKey {
     Eurc,
     PoolWasm,
     MakerPool(Address),
+    Initialized,
 }
 
 #[contract]
 pub struct MakerPoolFactory;
+
+fn check_initialized(env: &Env) {
+    if !env.storage().instance().has(&DataKey::Initialized) {
+        panic_with_error!(env, Error::NotInitialized);
+    }
+}
 
 #[contractimpl]
 impl MakerPoolFactory {
@@ -60,6 +78,11 @@ impl MakerPoolFactory {
         eurc: Address,
         pool_wasm_hash: BytesN<32>,
     ) {
+        if env.storage().instance().has(&DataKey::Initialized) {
+            panic_with_error!(env, Error::AlreadyInitialized);
+        }
+        admin.require_auth();
+
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage()
             .instance()
@@ -75,6 +98,10 @@ impl MakerPoolFactory {
         env.storage()
             .instance()
             .set(&DataKey::PoolWasm, &pool_wasm_hash);
+        env.storage().instance().set(&DataKey::Initialized, &true);
+        env.storage()
+            .instance()
+            .extend_ttl(LEDGER_THRESHOLD, LEDGER_BUMP);
     }
 
     pub fn deploy_pool(
@@ -84,14 +111,15 @@ impl MakerPoolFactory {
         supported_pairs: Vec<(Address, Address)>,
     ) -> Address {
         maker.require_auth();
+        check_initialized(&env);
+        env.storage()
+            .instance()
+            .extend_ttl(LEDGER_THRESHOLD, LEDGER_BUMP);
 
         // Ensure no duplicate pool
-        if env
-            .storage()
-            .persistent()
-            .has(&DataKey::MakerPool(maker.clone()))
-        {
-            panic!("Pool already deployed for this maker");
+        let pool_key = DataKey::MakerPool(maker.clone());
+        if env.storage().persistent().has(&pool_key) {
+            panic_with_error!(env, Error::PoolAlreadyDeployed);
         }
 
         let pool_wasm: BytesN<32> = env
@@ -127,7 +155,9 @@ impl MakerPoolFactory {
             .get(&DataKey::PoolRegistry)
             .unwrap();
 
-        // Initialize the pool
+        // Initialize the pool (atomic within this same transaction — deploy_v2
+        // and this call happen in one host invocation, so there's no window
+        // for another transaction to race the pool's own initialize).
         MakerPoolClient::new(&env, &pool_address).initialize(
             &maker,
             &signer_key,
@@ -145,9 +175,10 @@ impl MakerPoolFactory {
         );
 
         // Store maker→pool mapping
+        env.storage().persistent().set(&pool_key, &pool_address);
         env.storage()
             .persistent()
-            .set(&DataKey::MakerPool(maker.clone()), &pool_address);
+            .extend_ttl(&pool_key, LEDGER_THRESHOLD, LEDGER_BUMP);
 
         env.events()
             .publish(("pool_deployed",), (maker, pool_address.clone()));

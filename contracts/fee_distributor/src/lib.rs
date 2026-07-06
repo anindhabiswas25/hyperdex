@@ -5,24 +5,21 @@ use soroban_sdk::{
     token, Address, Env,
 };
 
-const LEDGER_THRESHOLD: u32 = 100_000;
-const LEDGER_BUMP: u32 = 120_000;
+const LEDGER_THRESHOLD: u32 = 1_000_000;
+const LEDGER_BUMP: u32 = 1_500_000;
 
 #[contracterror]
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Error {
     NotInitialized = 1,
     AlreadyInitialized = 2,
-    Unauthorized = 3,
-    NoFeesToWithdraw = 4,
+    NoFeesToWithdraw = 3,
 }
 
 #[contracttype]
 enum DataKey {
     Admin,
     Treasury,
-    QuoteVerifier,
-    Fees(Address),
     Initialized,
 }
 
@@ -35,54 +32,22 @@ impl FeeDistributor {
         if env.storage().instance().has(&DataKey::Initialized) {
             panic_with_error!(env, Error::AlreadyInitialized);
         }
+        admin.require_auth();
+
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage()
             .instance()
             .set(&DataKey::Treasury, &treasury);
-        env.storage()
-            .instance()
-            .set(&DataKey::Initialized, &true);
-        env.storage()
-            .instance()
-            .extend_ttl(LEDGER_THRESHOLD, LEDGER_BUMP);
-    }
-
-    pub fn set_quote_verifier(env: Env, quote_verifier: Address) {
-        let admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .unwrap_or_else(|| panic_with_error!(env, Error::NotInitialized));
-        admin.require_auth();
-        env.storage()
-            .instance()
-            .set(&DataKey::QuoteVerifier, &quote_verifier);
+        env.storage().instance().set(&DataKey::Initialized, &true);
         env.storage()
             .instance()
             .extend_ttl(LEDGER_THRESHOLD, LEDGER_BUMP);
     }
 
-    pub fn collect_fee(env: Env, token: Address, amount: i128) {
-        // Only the registered quote_verifier may call this.
-        let qv: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::QuoteVerifier)
-            .unwrap_or_else(|| panic_with_error!(env, Error::NotInitialized));
-        env.storage()
-            .instance()
-            .extend_ttl(LEDGER_THRESHOLD, LEDGER_BUMP);
-        qv.require_auth();
-        let key = DataKey::Fees(token);
-        let current: i128 = env.storage().persistent().get(&key).unwrap_or(0);
-        env.storage()
-            .persistent()
-            .set(&key, &(current + amount));
-        env.storage()
-            .persistent()
-            .extend_ttl(&key, LEDGER_THRESHOLD, LEDGER_BUMP);
-    }
-
+    /// Fee tokens arrive here via a direct token::transfer from maker_pool
+    /// during execute_swap — this contract just holds them. Sweeps the
+    /// contract's actual token balance to treasury (no separate internal
+    /// ledger to keep in sync with real balances).
     pub fn withdraw_fees(env: Env, token: Address) {
         let admin: Address = env
             .storage()
@@ -93,33 +58,24 @@ impl FeeDistributor {
         env.storage()
             .instance()
             .extend_ttl(LEDGER_THRESHOLD, LEDGER_BUMP);
+
         let treasury: Address = env
             .storage()
             .instance()
             .get(&DataKey::Treasury)
             .unwrap();
-        let key = DataKey::Fees(token.clone());
-        let amount: i128 = env.storage().persistent().get(&key).unwrap_or(0);
+
+        let contract_address = env.current_contract_address();
+        let amount = token::Client::new(&env, &token).balance(&contract_address);
         if amount == 0 {
             panic_with_error!(env, Error::NoFeesToWithdraw);
         }
-        env.storage().persistent().set(&key, &0i128);
-        env.storage()
-            .persistent()
-            .extend_ttl(&key, LEDGER_THRESHOLD, LEDGER_BUMP);
-        token::Client::new(&env, &token).transfer(
-            &env.current_contract_address(),
-            &treasury,
-            &amount,
-        );
+        token::Client::new(&env, &token).transfer(&contract_address, &treasury, &amount);
+
+        env.events().publish(("fees_withdrawn",), (token, amount));
     }
 
     pub fn get_fees(env: Env, token: Address) -> i128 {
-        let key = DataKey::Fees(token);
-        let amt: i128 = env.storage().persistent().get(&key).unwrap_or(0);
-        env.storage()
-            .persistent()
-            .extend_ttl(&key, LEDGER_THRESHOLD, LEDGER_BUMP);
-        amt
+        token::Client::new(&env, &token).balance(&env.current_contract_address())
     }
 }

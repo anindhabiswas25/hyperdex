@@ -65,8 +65,8 @@ npm run dev
 
 Verify:
 ```bash
-curl http://localhost:4000/api/health
-# → { "status": "ok" }
+curl http://localhost:4000/health
+# → { "status": "ok", "activeMakers": 0, "priceBookEntries": 0, "dbStatus": "connected" }
 ```
 
 ---
@@ -109,19 +109,21 @@ npm run setup
 ```
 
 The setup wizard will:
-1. Prompt for: MAKER Stellar address, backend URL (`http://localhost:4000`), API key (leave blank for now — press Enter)
+1. Prompt for your **API key** (the `sk_live_...` key the admin issued in Phase 3) and verify it against the backend
 2. Generate an Ed25519 keypair (signer public key + secret)
-3. Write credentials to `~/.hyperdex/maker-credentials.json`
-4. Call `POST /api/makers/register-signer-key` — the backend stores the signer public key in MongoDB
+3. Write credentials to `credentials/<yourname>.cred` (file perms 600 — **git-ignored, never commit it**)
+4. Print your **signer PUBLIC KEY** — copy it; you paste it into `/maker` in Phase 5 to register on-chain
 
 **Expected output:**
 ```
-✓ Signer key generated
-  PUBLIC KEY:  <64 hex chars>
-  SECRET KEY:  <64 hex chars> (keep safe!)
+✓ Verified as: <your-name> (G...)
+✓ Keypair generated
 
-✓ Signer key registered with backend
-  → Pool deployment form pre-filled on /maker
+  Your SIGNER PUBLIC KEY:
+  <64 hex chars>
+
+  📋 Copy this key — you paste it on /maker in the next step
+  Credentials saved: credentials/<yourname>.cred
 ```
 
 ---
@@ -158,20 +160,38 @@ After both deposits, the page shows the pool as funded and auto-advances to **St
 
 ```bash
 cd /home/asus/Project/HyperDex/maker-sdk
-npm run dev
+
+# Built-in ghost-price engine (prompts you for a ghost price on start)
+npm run dev <yourname>
+
+# ...or run your own pricing engine — NOTE the `--` separator (npm strips a bare flag)
+npm run dev <yourname> -- --engine=./examples/binance-engine.ts
+
+# Skip the ghost-price prompt in CI:
+GHOST_PRICE=0.8788 npm run dev <yourname>
 ```
+
+`<yourname>` is the credential name — the part before `.cred` in
+`credentials/`. Pricing is pluggable via a **MakerEngine**: the default
+ghost-price engine auto-bids one price you set (inventory-checked + drift-guarded),
+or you supply a custom engine with `--engine`. See `maker-sdk/README.md` and
+`maker-sdk/CUSTOM_ENGINE.md`.
 
 **Expected banner:**
 ```
-════════════════════════════════════════
-  HYPERDEX MAKER SDK  ·  TESTNET
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  HyperDEX Maker SDK  ● LIVE
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Maker:   <your-name>
   Address: G...
   Pool:    C...
-  USDC:    100.00   EURC:  100.00
-════════════════════════════════════════
-[WS] Connected to ws://localhost:4000/ws
-[PriceLevels] Sent: 3 sell levels, 3 buy levels (USDC/EURC)
+  Backend: wss://hyperdex.onrender.com/ws/maker
+  Engine:  Built-in (ghost-price)      ← or: binance-engine.ts [custom]
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Ghost price: 1 USDC = 0.878800 EURC
+  Auto-bidding at ghost price on all RFQs...
+  Press Ctrl+C to disconnect | Ctrl+R to update ghost price
+[WS] Connected to HyperDEX backend
 ```
 
 The `/maker` page Overview tab shows **SDK Online — streaming price levels**.
@@ -276,14 +296,17 @@ Expected response:
 
 ## Contract Addresses (Testnet — update after deploy-v2.sh)
 
+These are the current live testnet deployments (redeploying via `deploy-v2.sh`
+overwrites them in `backend/.env` + `frontend/.env.local`):
+
 | Contract | Address |
 |---|---|
-| USDC | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` |
-| EURC | `CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ` |
-| PoolRegistry | `CCJHRG7A4O36MJ7473AKID4FY6YJAUWCMDFOCB5KUWOP5ZPXVKMKRIK7` |
-| QuoteVerifier | *(set by deploy-v2.sh)* |
-| MakerPoolFactory | *(set by deploy-v2.sh)* |
-| FeeDistributor | *(set by deploy-v2.sh)* |
+| USDC SAC | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` |
+| EURC SAC | `CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ` |
+| PoolRegistry | `CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP` |
+| QuoteVerifier | `CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN` |
+| MakerPoolFactory | `CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6` |
+| FeeDistributor | `CCQIZPZD7T2ZFYFTISMJ7GSPLK32L43EXJLHZM7JJX6ERXWO7DURJSYF` |
 | MakerPool (per-maker) | *(deployed in Phase 5, shown in dashboard)* |
 
 ---
@@ -298,3 +321,5 @@ Expected response:
 | Pool balances show 0 after deposit | Re-check Stellar confirmation; try `refetch` |
 | Rate Limits tab empty after 11 RFQs | Ensure taker address matches; check backend logs for `setLimit` |
 | Trade push not received by SDK | Check WebSocket connection in SDK logs; `TradePushService` retries every 30s for 5 min |
+| Dashboard shows "SDK Offline" but the SDK terminal is `[WS] Connected` | Idle WS connections drop on hosted backends and the SDK auto-reconnects; the backend now guards the reconnect race so the live socket stays registered. If it persists, restart the SDK (`Ctrl+C` then `npm run dev <name>`) to force a fresh connection |
+| `[WS] Custom engine failed to load — falling back to built-in` | The `--engine` path is wrong or the file doesn't export `getLevels`/`getQuote`; fix the path (remember the `--` separator) or the export |

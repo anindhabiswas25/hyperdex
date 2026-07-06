@@ -18,7 +18,7 @@ import nacl from 'tweetnacl'
 import * as StellarSdk from '@stellar/stellar-sdk'
 import chalk from 'chalk'
 
-const POOL_REGISTRY = 'CAWPFMTTRQD76CBXMRBJTXKFBFYD37RZM6ZZXOZ7QBYTKCXK5YOEOK4J'
+const POOL_REGISTRY = 'CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP'
 const STELLAR_RPC   = 'https://soroban-testnet.stellar.org'
 const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET
 const MAX_FEE = '1000000'
