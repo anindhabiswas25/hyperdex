@@ -393,9 +393,9 @@ export default function HomePage() {
                   {
                     title: 'SOCIAL',
                     links: [
-                      { label: 'Twitter / X',    href: '#' },
+                      { label: 'Twitter / X',    href: 'https://x.com/hyperdex_live', external: true },
                       { label: 'Discord',        href: '#' },
-                      { label: 'GitHub',         href: '#' },
+                      { label: 'GitHub',         href: 'https://github.com/anindhabiswas25/hyperdex', external: true },
                     ],
                   },
                 ].map(col => (
@@ -458,7 +458,7 @@ export default function HomePage() {
 
           {/* Bottom bar */}
           <div className="border-t border-black/10 py-5 flex flex-col sm:flex-row justify-between items-center gap-3">
-            <p className="text-ink-muted text-sm">&copy; 2025 HyperDex. All rights reserved.</p>
+            <p className="text-ink-muted text-sm">&copy; 2026 HyperDex. All rights reserved.</p>
             <p className="text-ink-muted text-sm">Stellar Testnet</p>
           </div>
         </div>
