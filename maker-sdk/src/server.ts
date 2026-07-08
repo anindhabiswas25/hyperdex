@@ -311,6 +311,30 @@ function setupKeypressHandler(): void {
 
 // ── Helper functions ───────────────────────────────────────────────────────────
 
+// The backend runs on Render's free tier and sleeps after ~15 min of inactivity.
+// A cold start takes ~20-30s to serve its first request, which would blow the
+// short timeouts on the identity/pool/WS calls below. So before doing anything
+// else, ping /health and wait for the instance to wake up.
+async function waitForBackend(): Promise<void> {
+  const maxAttempts = 12          // ~ up to 60s of cold-start tolerance
+  const perTryTimeout = 30_000    // Render cold start can take ~20-30s
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await axios.get(`${BACKEND_HTTP_URL}/health`, { timeout: perTryTimeout })
+      if (res.status === 200) {
+        if (attempt > 1) console.log(chalk.green('  ✓ Backend awake.'))
+        return
+      }
+    } catch {
+      if (attempt === 1) {
+        console.log(chalk.yellow('  Backend asleep — waking it up (this can take ~30s)…'))
+      }
+    }
+    if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 3_000))
+  }
+  console.log(chalk.yellow('  ⚠ Backend did not respond to warm-up; continuing anyway.'))
+}
+
 async function fetchMakerIdentity(): Promise<{ name: string; stellarAddress: string }> {
   try {
     const res = await axios.post(`${BACKEND_HTTP_URL}/api/makers/verify-key`, { apiKey: MAKER_API_KEY })
@@ -371,11 +395,15 @@ async function loadEngine(): Promise<MakerEngine> {
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 ;(async () => {
-  // 0. Load the pricing engine (default ghost-price, or custom via --engine)
+  // 0. Wake the backend if it's asleep (Render free tier), so the identity/pool
+  //    fetches and the WebSocket handshake below don't fail on a cold start.
+  await waitForBackend()
+
+  // 1. Load the pricing engine (default ghost-price, or custom via --engine)
   makerEngine = await loadEngine()
   wsClient = new MakerWsClient(signer, makerEngine)
 
-  // 1. Start oracle (fetches initial rates)
+  // 2. Start oracle (fetches initial rates)
   await priceOracle.start()
 
   // 2. Load initial inventory

@@ -72,6 +72,29 @@ export async function fetchHealth(): Promise<HealthStatus> {
   return get<HealthStatus>('/health');
 }
 
+/**
+ * Wake the backend if it's asleep (Render free tier sleeps after ~15 min idle).
+ * Render wakes on any inbound request, so a single /health GET triggers the
+ * cold start; we retry a few times because the first request can take ~20-30s.
+ * Fire-and-forget on app load so the instance is warm by the time the user
+ * requests a quote. Returns true once the backend responds, false otherwise.
+ */
+export async function warmupBackend(attempts = 4, timeoutMs = 30_000): Promise<boolean> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(`${BACKEND_URL}/health`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) return true;
+    } catch {
+      // network error or cold-start timeout — wait and retry
+    }
+    if (i < attempts - 1) await new Promise(r => setTimeout(r, 3_000));
+  }
+  return false;
+}
+
 export async function fetchMakers(): Promise<MakerInfo[]> {
   const result = await get<{ makers: MakerInfo[] }>('/api/makers');
   return result.makers;
