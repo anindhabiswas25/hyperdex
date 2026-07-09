@@ -65,8 +65,8 @@ const PAGE_MAP: Record<string, React.ComponentType> = {
   'faq':             FaqPage,
 };
 
-export default function DocSlugPage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+export default async function DocSlugPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const PageComponent = PAGE_MAP[slug];
 
   if (!PageComponent) {

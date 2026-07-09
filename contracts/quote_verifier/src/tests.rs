@@ -1,4 +1,254 @@
 #[cfg(test)]
+mod settlement_tests {
+    use crate::{Error, Quote, QuoteVerifier, QuoteVerifierClient};
+    use ed25519_dalek::{Signer, SigningKey};
+    use soroban_sdk::testutils::{Address as _, Ledger as _};
+    use soroban_sdk::xdr::ToXdr;
+    use soroban_sdk::{token, Address, BytesN, Env, Vec};
+
+    const FEE_BPS: u32 = 10; // 0.1%
+    const AMOUNT_IN: i128 = 10_000_000;
+    const AMOUNT_OUT: i128 = 9_240_000;
+
+    struct Fixture {
+        env: Env,
+        verifier_addr: Address,
+        registry_addr: Address,
+        pool_addr: Address,
+        maker: Address,
+        taker: Address,
+        usdc: Address,
+        eurc: Address,
+        fee_distributor: Address,
+        signing_key: SigningKey,
+    }
+
+    impl Fixture {
+        fn verifier(&self) -> QuoteVerifierClient {
+            QuoteVerifierClient::new(&self.env, &self.verifier_addr)
+        }
+        fn registry(&self) -> pool_registry::PoolRegistryClient {
+            pool_registry::PoolRegistryClient::new(&self.env, &self.registry_addr)
+        }
+        fn usdc_token(&self) -> token::Client {
+            token::Client::new(&self.env, &self.usdc)
+        }
+        fn eurc_token(&self) -> token::Client {
+            token::Client::new(&self.env, &self.eurc)
+        }
+    }
+
+    fn signer_from_seed(seed: u8) -> SigningKey {
+        SigningKey::from_bytes(&[seed; 32])
+    }
+
+    /// Wire up the full settlement stack the way it runs on-chain:
+    /// registry + verifier + fee_distributor + a maker_pool holding token_out
+    /// inventory, with the maker registered against a real ed25519 signer key.
+    fn setup(signing_key: SigningKey) -> Fixture {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let maker = Address::generate(&env);
+        let taker = Address::generate(&env);
+
+        // Two SAC tokens standing in for USDC / EURC.
+        let usdc = env.register_stellar_asset_contract_v2(admin.clone()).address();
+        let eurc = env.register_stellar_asset_contract_v2(admin.clone()).address();
+        let usdc_admin = token::StellarAssetClient::new(&env, &usdc);
+        let eurc_admin = token::StellarAssetClient::new(&env, &eurc);
+
+        // Contracts.
+        let registry_addr = env.register(pool_registry::PoolRegistry, ());
+        let registry = pool_registry::PoolRegistryClient::new(&env, &registry_addr);
+        let fee_distributor = env.register(fee_distributor::FeeDistributor, ());
+        let fd_client = fee_distributor::FeeDistributorClient::new(&env, &fee_distributor);
+        let verifier_addr = env.register(QuoteVerifier, ());
+        let verifier = QuoteVerifierClient::new(&env, &verifier_addr);
+        let pool_addr = env.register(maker_pool::MakerPool, ());
+        let pool = maker_pool::MakerPoolClient::new(&env, &pool_addr);
+
+        // Initialize everything.
+        let factory = Address::generate(&env); // stand-in factory (mock_all_auths approves)
+        registry.initialize(&admin, &factory);
+        fd_client.initialize(&admin, &admin);
+        verifier.initialize(&admin, &registry_addr, &fee_distributor, &usdc, &eurc, &FEE_BPS);
+
+        let signer_key = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
+        pool.initialize(&maker, &signer_key, &verifier_addr, &usdc, &eurc);
+
+        // Register the maker in the registry (factory-authed).
+        let mut pairs: Vec<(Address, Address)> = Vec::new(&env);
+        pairs.push_back((usdc.clone(), eurc.clone()));
+        registry.register_maker(&maker, &signer_key, &pool_addr, &pairs);
+
+        // Fund: maker deposits EURC (token_out) inventory; taker holds USDC (token_in).
+        eurc_admin.mint(&maker, &20_000_000);
+        pool.deposit(&maker, &eurc, &20_000_000);
+        usdc_admin.mint(&taker, &AMOUNT_IN);
+
+        Fixture {
+            env,
+            verifier_addr,
+            registry_addr,
+            pool_addr,
+            maker,
+            taker,
+            usdc,
+            eurc,
+            fee_distributor,
+            signing_key,
+        }
+    }
+
+    fn make_quote(f: &Fixture, quote_id: u8, expiry: u64) -> Quote {
+        Quote {
+            quote_id: BytesN::from_array(&f.env, &[quote_id; 32]),
+            maker: f.maker.clone(),
+            taker: f.taker.clone(),
+            token_in: f.usdc.clone(),
+            token_out: f.eurc.clone(),
+            amount_in: AMOUNT_IN,
+            amount_out: AMOUNT_OUT,
+            expiry,
+            salt: BytesN::from_array(&f.env, &[0x99; 32]),
+        }
+    }
+
+    /// Sign sha256(XDR(quote)) exactly as the SDK and contract expect.
+    fn sign(f: &Fixture, quote: &Quote, key: &SigningKey) -> BytesN<64> {
+        let xdr = quote.clone().to_xdr(&f.env);
+        let digest = f.env.crypto().sha256(&xdr).to_array();
+        let sig = key.sign(&digest);
+        BytesN::from_array(&f.env, &sig.to_bytes())
+    }
+
+    #[test]
+    fn happy_path_settles_and_splits_fee() {
+        let f = setup(signer_from_seed(1));
+        let quote = make_quote(&f, 0x01, 2000);
+        let sig = sign(&f, &quote, &f.signing_key);
+
+        f.verifier().execute_quote(&quote, &sig);
+
+        let fee = AMOUNT_OUT * (FEE_BPS as i128) / 10_000;
+        let taker_gets = AMOUNT_OUT - fee;
+
+        // Taker received token_out net of fee; fee landed in the distributor.
+        assert_eq!(f.eurc_token().balance(&f.taker), taker_gets);
+        assert_eq!(f.eurc_token().balance(&f.fee_distributor), fee);
+        // Taker's token_in was pulled into the pool.
+        assert_eq!(f.usdc_token().balance(&f.taker), 0);
+        assert_eq!(f.usdc_token().balance(&f.pool_addr), AMOUNT_IN);
+        // Pool paid out exactly amount_out of token_out.
+        assert_eq!(f.eurc_token().balance(&f.pool_addr), 20_000_000 - AMOUNT_OUT);
+    }
+
+    #[test]
+    fn replay_is_rejected() {
+        let f = setup(signer_from_seed(2));
+        let quote = make_quote(&f, 0x02, 2000);
+        let sig = sign(&f, &quote, &f.signing_key);
+
+        f.verifier().execute_quote(&quote, &sig);
+        // Same quote_id again → QuoteAlreadyUsed.
+        let res = f.verifier().try_execute_quote(&quote, &sig);
+        assert_eq!(res, Err(Ok(Error::QuoteAlreadyUsed.into())));
+    }
+
+    #[test]
+    fn expired_quote_is_rejected() {
+        let f = setup(signer_from_seed(3));
+        // Advance ledger time past the quote's expiry.
+        f.env.ledger().with_mut(|li| li.timestamp = 5000);
+        let quote = make_quote(&f, 0x03, 2000);
+        let sig = sign(&f, &quote, &f.signing_key);
+
+        let res = f.verifier().try_execute_quote(&quote, &sig);
+        assert_eq!(res, Err(Ok(Error::QuoteExpired.into())));
+    }
+
+    #[test]
+    fn same_token_in_and_out_is_rejected() {
+        let f = setup(signer_from_seed(4));
+        let mut quote = make_quote(&f, 0x04, 2000);
+        quote.token_out = f.usdc.clone(); // token_in == token_out
+        let sig = sign(&f, &quote, &f.signing_key);
+
+        let res = f.verifier().try_execute_quote(&quote, &sig);
+        assert_eq!(res, Err(Ok(Error::InvalidTokens.into())));
+    }
+
+    #[test]
+    fn non_whitelisted_token_is_rejected() {
+        let f = setup(signer_from_seed(5));
+        let bogus = env_random_token(&f.env);
+        let mut quote = make_quote(&f, 0x05, 2000);
+        quote.token_out = bogus;
+        let sig = sign(&f, &quote, &f.signing_key);
+
+        let res = f.verifier().try_execute_quote(&quote, &sig);
+        assert_eq!(res, Err(Ok(Error::InvalidTokens.into())));
+    }
+
+    #[test]
+    #[should_panic] // ed25519_verify traps on a bad signature
+    fn forged_signature_is_rejected() {
+        let f = setup(signer_from_seed(6));
+        let quote = make_quote(&f, 0x06, 2000);
+        // Sign with a DIFFERENT key than the one registered.
+        let wrong = signer_from_seed(200);
+        let sig = sign(&f, &quote, &wrong);
+
+        f.verifier().execute_quote(&quote, &sig);
+    }
+
+    #[test]
+    fn tampered_amount_is_rejected() {
+        let f = setup(signer_from_seed(7));
+        let quote = make_quote(&f, 0x07, 2000);
+        let sig = sign(&f, &quote, &f.signing_key);
+        // Attacker bumps amount_out after signing.
+        let mut tampered = quote.clone();
+        tampered.amount_out = AMOUNT_OUT * 2;
+        let res = f.verifier().try_execute_quote(&tampered, &sig);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn inactive_maker_is_rejected() {
+        let f = setup(signer_from_seed(8));
+        f.registry().set_maker_active(&f.maker, &false);
+        let quote = make_quote(&f, 0x08, 2000);
+        let sig = sign(&f, &quote, &f.signing_key);
+
+        let res = f.verifier().try_execute_quote(&quote, &sig);
+        assert_eq!(res, Err(Ok(Error::InvalidSigner.into())));
+    }
+
+    #[test]
+    fn fee_bps_above_max_is_rejected_at_init() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let registry = env.register(pool_registry::PoolRegistry, ());
+        let fd = env.register(fee_distributor::FeeDistributor, ());
+        let usdc = env.register_stellar_asset_contract_v2(admin.clone()).address();
+        let eurc = env.register_stellar_asset_contract_v2(admin.clone()).address();
+        let verifier = QuoteVerifierClient::new(&env, &env.register(QuoteVerifier, ()));
+
+        let res = verifier.try_initialize(&admin, &registry, &fd, &usdc, &eurc, &10_001);
+        assert_eq!(res, Err(Ok(Error::InvalidFee.into())));
+    }
+
+    fn env_random_token(env: &Env) -> Address {
+        let admin = Address::generate(env);
+        env.register_stellar_asset_contract_v2(admin).address()
+    }
+}
+
+#[cfg(test)]
 mod serialization_tests {
     extern crate std;
     use std::{format, vec::Vec};

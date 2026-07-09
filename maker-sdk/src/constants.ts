@@ -16,10 +16,10 @@ export const NETWORK_CONFIG = {
     rpcUrl: 'https://mainnet.sorobanrpc.com',
     // Mainnet USDC SAC (contract) address.
     usdc: 'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75',
-    // WARNING: the value below is a placeholder ISSUER account, NOT the EURC SAC
-    // contract address. Before mainnet you MUST override EURC_CONTRACT_ADDRESS
-    // with the real EURC Stellar Asset Contract (C...) address via env.
-    eurc: 'GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP',
+    // No default: the EURC Stellar Asset Contract (C...) address MUST be supplied
+    // via EURC_CONTRACT_ADDRESS on mainnet. A blank default fails closed rather
+    // than shipping a wrong (issuer G...) address that silently breaks EURC.
+    eurc: '',
     passphrase: 'Public Global Stellar Network ; September 2015',
   },
 } as const;
@@ -33,6 +33,23 @@ export const USDC_CONTRACT =
   process.env.USDC_CONTRACT_ADDRESS || process.env.USDC_CONTRACT || ACTIVE_CONFIG.usdc;
 export const EURC_CONTRACT =
   process.env.EURC_CONTRACT_ADDRESS || process.env.EURC_CONTRACT || ACTIVE_CONFIG.eurc;
+
+// Fail closed on mainnet if token contracts aren't explicitly configured, and
+// reject issuer (G...) addresses — a SAC token address must be a contract (C...).
+if (NETWORK === 'mainnet') {
+  for (const [name, val] of [['USDC', USDC_CONTRACT], ['EURC', EURC_CONTRACT]] as const) {
+    if (!val) {
+      throw new Error(
+        `${name}_CONTRACT_ADDRESS is required on mainnet. Set it to the ${name} Stellar Asset Contract (C...) address.`
+      );
+    }
+    if (!val.startsWith('C')) {
+      throw new Error(
+        `${name}_CONTRACT_ADDRESS must be a Stellar Asset Contract (C...) address, got "${val}". An issuer account (G...) is not a token contract.`
+      );
+    }
+  }
+}
 
 // pool_registry contract address (network-specific, set at deploy time).
 export const POOL_REGISTRY =

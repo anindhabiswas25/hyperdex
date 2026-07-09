@@ -10,7 +10,7 @@ const LEDGER_THRESHOLD: u32 = 1_000_000;
 const LEDGER_BUMP: u32 = 1_500_000;
 
 #[contracterror]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Error {
     NotInitialized = 1,
     AlreadyInitialized = 2,
@@ -20,7 +20,12 @@ pub enum Error {
     QuoteAlreadyUsed = 6,
     InvalidSigner = 7,
     InvalidSignature = 8,
+    InvalidFee = 9,
 }
+
+/// Fee is expressed in basis points; 10_000 bps = 100%. A fee above this would
+/// make taker_gets negative and brick every swap, so it's rejected at the source.
+const MAX_FEE_BPS: u32 = 10_000;
 
 /// Quote submitted by taker. The maker signs SHA256(XDR(quote)) off-chain.
 /// Field serialization is canonical XDR (ScVal) of this exact struct.
@@ -113,6 +118,10 @@ impl QuoteVerifier {
             panic_with_error!(env, Error::AlreadyInitialized);
         }
         admin.require_auth();
+
+        if fee_bps > MAX_FEE_BPS {
+            panic_with_error!(env, Error::InvalidFee);
+        }
 
         let config = Config {
             admin,
@@ -212,6 +221,9 @@ impl QuoteVerifier {
             .get(&DataKey::Config)
             .unwrap_or_else(|| panic_with_error!(env, Error::NotInitialized));
         config.admin.require_auth();
+        if new_fee_bps > MAX_FEE_BPS {
+            panic_with_error!(env, Error::InvalidFee);
+        }
         config.fee_bps = new_fee_bps;
         env.storage().instance().set(&DataKey::Config, &config);
         env.storage()

@@ -114,6 +114,61 @@ export async function getPoolAddressFromRegistry(
   }
 }
 
+// Read a maker's ed25519 signer key from pool_registry — the SAME key
+// quote_verifier uses on-chain to verify quotes. This is the source of truth for
+// off-chain bid verification; the MongoDB signerPublicKey can drift from it.
+// Returns lowercase hex (64 chars) or null. Cached for CACHE_TTL_MS so a 30s
+// auction with many bids doesn't issue one RPC per bid.
+export async function getOnChainSignerKey(
+  makerAddress: string,
+  skipCache = false
+): Promise<string | null> {
+  const registryAddress = config.POOL_REGISTRY_CONTRACT_ADDRESS;
+  if (!registryAddress) return null;
+
+  const cacheKey = `signerkey:${makerAddress}`;
+  if (!skipCache) {
+    const cached = getCached(cacheKey);
+    if (cached !== null) return cached === 'null' ? null : cached;
+  }
+
+  const server = getRpcServer();
+  const contract = new StellarSdk.Contract(registryAddress);
+  const makerScVal = StellarSdk.nativeToScVal(makerAddress, { type: 'address' });
+
+  const account = await server.getAccount(makerAddress).catch(() => null);
+  if (!account) return null;
+
+  try {
+    const tx = new StellarSdk.TransactionBuilder(account, {
+      fee: '100',
+      networkPassphrase: NETWORK_PASSPHRASE,
+    })
+      .addOperation(contract.call('get_signer_key', makerScVal))
+      .setTimeout(30)
+      .build();
+
+    const result = await server.simulateTransaction(tx);
+    if (!StellarSdk.rpc.Api.isSimulationSuccess(result) || !result.result) {
+      setCached(cacheKey, 'null');
+      return null;
+    }
+
+    // get_signer_key returns BytesN<32>; scValToNative yields a Buffer.
+    const raw = StellarSdk.scValToNative(result.result.retval) as Buffer | Uint8Array;
+    const hex = Buffer.from(raw).toString('hex');
+    if (!/^[0-9a-f]{64}$/.test(hex)) {
+      setCached(cacheKey, 'null');
+      return null;
+    }
+    setCached(cacheKey, hex);
+    return hex;
+  } catch {
+    setCached(cacheKey, 'null');
+    return null;
+  }
+}
+
 // Read balance from maker's own pool contract
 export async function getMakerPoolBalance(
   poolAddress: string,

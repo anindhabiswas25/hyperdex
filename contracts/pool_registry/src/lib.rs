@@ -9,7 +9,7 @@ const LEDGER_THRESHOLD: u32 = 1_000_000;
 const LEDGER_BUMP: u32 = 1_500_000;
 
 #[contracterror]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Error {
     NotFound = 1,
     Unauthorized = 2,
@@ -188,3 +188,6 @@ impl PoolRegistry {
             .unwrap_or(false)
     }
 }
+
+#[cfg(test)]
+mod test;

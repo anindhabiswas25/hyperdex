@@ -9,7 +9,7 @@ const LEDGER_THRESHOLD: u32 = 1_000_000;
 const LEDGER_BUMP: u32 = 1_500_000;
 
 #[contracterror]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Error {
     NotInitialized = 1,
     AlreadyInitialized = 2,
@@ -292,3 +292,6 @@ impl MakerPool {
             .publish(("signer_key_updated",), (owner, new_signer_key));
     }
 }
+
+#[cfg(test)]
+mod test;

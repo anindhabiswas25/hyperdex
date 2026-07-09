@@ -4,6 +4,7 @@ import { logger } from '../../utils/logger';
 import { auctionStore } from '../../rfq/AuctionStore';
 import { Maker } from '../../db/models/Maker';
 import { verifyQuoteSignature, VerifiableQuote } from '../../rfq/verifyQuoteSignature';
+import { getOnChainSignerKey } from '../../utils/stellarUtils';
 
 export async function onRfqQuote(conn: MakerConnection, msg: RfqQuoteMessage): Promise<void> {
   const m = msg.message;
@@ -44,22 +45,33 @@ export async function onRfqQuote(conn: MakerConnection, msg: RfqQuoteMessage): P
     return;
   }
 
-  // Fetch the maker's registered signer key and verify the ed25519 signature
-  // off-chain. This rejects fake high bids (garbage signatures) before they can
-  // win an auction and detonate on-chain at the trader's expense.
+  // Verify the ed25519 signature off-chain against the maker's key AS REGISTERED
+  // ON-CHAIN in pool_registry — the exact key quote_verifier will check at
+  // settlement. Using the on-chain key (not the mutable MongoDB copy) guarantees
+  // a bid that passes here also passes on-chain, so a fake high bid can't win an
+  // auction and detonate at the trader's expense, and an honest bid is never
+  // rejected because the DB drifted from the registry.
   let signerKey: string;
   try {
     const maker = await Maker.findOne({ stellarAddress: conn.makerAddress, active: true }).lean();
-    if (!maker || !maker.signerPublicKey || !/^[0-9a-f]{64}$/.test(maker.signerPublicKey)) {
-      logger.warn('Maker has no registered signer key — bid rejected', {
+    if (!maker) {
+      logger.warn('Maker not active — bid rejected', {
         maker: conn.makerName,
         rfqId: rfqId.slice(0, 8),
       });
       return;
     }
-    signerKey = maker.signerPublicKey;
+    const onChainKey = await getOnChainSignerKey(conn.makerAddress);
+    if (!onChainKey) {
+      logger.warn('No on-chain signer key in registry — bid rejected', {
+        maker: conn.makerName,
+        rfqId: rfqId.slice(0, 8),
+      });
+      return;
+    }
+    signerKey = onChainKey;
   } catch (err) {
-    logger.error('Error fetching maker for verification', {
+    logger.error('Error fetching on-chain signer key for verification', {
       err: err instanceof Error ? err.message : String(err),
     });
     return;
