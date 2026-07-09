@@ -16,8 +16,8 @@
 ### Accounts (Testnet only — never use on mainnet)
 | Role | Stellar Address | Secret Key |
 |------|----------------|------------|
-| Market Maker | `GALNCMRJ2GCQ34RH7L55HZLUCZ3EHDIKPWTNTWDGVJ4FJWCP5GDVA726` | `SDLZVHAQNYI4OGE5BOIZLUEVOLCDT466MGZX37ICQBNE63WWTC53CWOC` |
-| Taker (User) | `GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A` | `SCHRXIECOQTPZJ4SRJ4EXBT5V6XD3NGAFOIPCS7BQJSAHAAJC3IH2SBY` |
+| Market Maker | `GALNCMRJ2GCQ34RH7L55HZLUCZ3EHDIKPWTNTWDGVJ4FJWCP5GDVA726` | `<REDACTED — use your own testnet maker secret>` |
+| Taker (User) | `GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A` | `<REDACTED — use your own testnet taker secret>` |
 
 ### Contract Addresses
 | Contract | Address |
@@ -38,7 +38,7 @@
 |-----|-------|
 | Maker API Key | `sk_live_REDACTED_SEE_ADMIN_DASHBOARD` |
 | Signer public key (ed25519 hex) | `f89265fbd7803601eb3a50a830f7ac0b3e5a3c490ec9705058e3a83311eca9d7` |
-| Signer private key (ed25519 hex) | `REDACTED_LEAKED_KEY_ROTATED` |
+| Signer private key (ed25519 hex) | `<REDACTED — signer private key, from npm run setup>` |
 
 ---
 
@@ -113,7 +113,7 @@ This writes the maker's signing key to the `pool_registry` Soroban contract so t
 2. Click **Connect Wallet** — Freighter popup appears
 3. Import the maker account if not already in Freighter:
    - Freighter → Account menu → Import Account
-   - Paste secret: `SDLZVHAQNYI4OGE5BOIZLUEVOLCDT466MGZX37ICQBNE63WWTC53CWOC`
+   - Paste secret: `<REDACTED — use your own testnet maker secret>`
 4. Select the maker account and click Connect
 5. On the dashboard, click the **Register** tab
 6. In the **Signer Key** field, paste:
@@ -335,7 +335,7 @@ If HTTP 503 "No liquidity" → maker SDK is not connected (re-check Phase 1D).
 
 1. Open Freighter → click the account name at the top
 2. Select **Import Account**
-3. Paste secret key: `SCHRXIECOQTPZJ4SRJ4EXBT5V6XD3NGAFOIPCS7BQJSAHAAJC3IH2SBY`
+3. Paste secret key: `<REDACTED — use your own testnet taker secret>`
 4. Confirm the address shown is: `GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A`
 5. Make sure Freighter is still on **Testnet**
 
@@ -464,4 +464,4 @@ USER SIDE
 ---
 
 *Network: Stellar Testnet — do not use real funds*
-*Accounts file: `/home/asus/Project/HyperDex/scripts/testnet-accounts.json`*
+*Use your own testnet accounts (Friendbot for XLM, faucet.circle.com for USDC/EURC). Maker credentials come from `npm run setup` in `maker-sdk/`.*

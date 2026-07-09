@@ -27,8 +27,8 @@ Issuer (Circle testnet): `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFL
 ## Test Accounts
 | Role   | Address | Secret (TESTNET ONLY) |
 |--------|---------|----------------------|
-| Maker  | `GALNCMRJ2GCQ34RH7L55HZLUCZ3EHDIKPWTNTWDGVJ4FJWCP5GDVA726` | `SDLZVHAQNYI4OGE5BOIZLUEVOLCDT466MGZX37ICQBNE63WWTC53CWOC` |
-| Taker  | `GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A` | `SCHRXIECOQTPZJ4SRJ4EXBT5V6XD3NGAFOIPCS7BQJSAHAAJC3IH2SBY` |
+| Maker  | `GALNCMRJ2GCQ34RH7L55HZLUCZ3EHDIKPWTNTWDGVJ4FJWCP5GDVA726` | `<REDACTED — use your own testnet maker secret>` |
+| Taker  | `GABIRDNI5LREXRZQ7RS34CE7WOWL6ZQSK3UVFJAH4R54P255OSHNEP5A` | `<REDACTED — use your own testnet taker secret>` |
 
 Maker signer pubkey (Ed25519): `f89265fbd7803601eb3a50a830f7ac0b3e5a3c490ec9705058e3a83311eca9d7`
 
@@ -337,7 +337,7 @@ Pass: Reverse swap confirmed
 
 ### Setup
 1. Switch Freighter to maker account
-   (Import secret: `SDLZVHAQNYI4OGE5BOIZLUEVOLCDT466MGZX37ICQBNE63WWTC53CWOC`)
+   (Import secret: `<REDACTED — use your own testnet maker secret>`)
 2. Navigate to http://localhost:3000/maker
 3. Connect wallet
 
@@ -558,4 +558,4 @@ Fill in as you test:
 
 *Network: Stellar Testnet — TESTNET ONLY — do not use real funds*
 
-*Accounts file: `/home/asus/Project/HyperDex/scripts/testnet-accounts.json`*
+*Use your own testnet accounts (Friendbot for XLM, faucet.circle.com for USDC/EURC). Maker credentials come from `npm run setup` in `maker-sdk/`.*

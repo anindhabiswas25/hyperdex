@@ -22,7 +22,7 @@ import mongoose from 'mongoose';
 
 const BASE = process.env.BACKEND_URL ?? 'http://localhost:4000';
 const WS_URL = BASE.replace('http', 'ws') + '/ws/maker';
-const MONGO_URI = process.env.MONGODB_URI ?? 'mongodb+srv://hyperdex:imoJtkvi4IPIZzeV@cluster0.19hanzf.mongodb.net/?appName=Cluster0';
+const MONGO_URI = process.env.MONGODB_URI ?? 'mongodb://localhost:27017/hyperdex';
 const MONGO_DB = 'hyperdex';
 
 const USDC = 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA';
