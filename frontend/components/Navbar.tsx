@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useWalletStore } from '@/store/walletStore';
 import ConnectWalletButton from '@/components/wallet/ConnectWalletButton';
 import { BACKEND_URL } from '@/lib/constants';
+import { adminFetch } from '@/lib/adminAuth';
 
 const LogoMark = ({ color = '#111118' }: { color?: string }) => (
   <svg viewBox="0 0 100 108" fill="none" className="h-7 w-7 shrink-0" aria-label="HyperDex">
@@ -48,7 +49,7 @@ export default function Navbar() {
   useEffect(() => {
     if (!isAdmin) return;
     const fetchPending = () => {
-      fetch(`${BACKEND_URL}/api/admin/pending?status=pending`)
+      adminFetch(`${BACKEND_URL}/api/admin/pending?status=pending`)
         .then(r => r.json())
         .then(d => setPendingCount(d.total ?? 0))
         .catch(() => {});
