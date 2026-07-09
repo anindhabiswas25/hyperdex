@@ -10,22 +10,20 @@ export default function WhatYouNeedPage() {
       <P>Freighter is the official Stellar browser wallet and the only wallet HyperDex currently supports. It is a browser extension (Chrome / Brave / Firefox).</P>
       <Ul>
         <Li>Download from <strong>freighter.app</strong> and install the extension</Li>
-        <Li>Create or import a wallet and <strong>set network to Testnet</strong> (Settings → Network → Testnet)</Li>
+        <Li>Create or import a wallet and <strong>set network to Mainnet (Public)</strong> (Settings → Network → Mainnet)</Li>
         <Li>Keep your seed phrase safe — HyperDex never has access to it</Li>
       </Ul>
-      <Callout type="warn" title="Testnet Only">HyperDex is currently running on Stellar Testnet. Never use mainnet funds or a mainnet-configured wallet.</Callout>
+      <Callout type="warn" title="Live on Mainnet — real funds">HyperDex runs on Stellar Mainnet. Transactions move real assets and are irreversible. Start with small amounts.</Callout>
 
       <H2 id="get-xlm">2. Get XLM for Fees</H2>
-      <P>Every Stellar transaction requires a small XLM fee (typically 0.00001 XLM). Get free testnet XLM from the Stellar Friendbot:</P>
-      <Code>{`curl "https://friendbot.stellar.org/?addr=YOUR_STELLAR_ADDRESS"`}</Code>
+      <P>Every Stellar transaction requires a small XLM fee (typically 0.00001 XLM). Buy XLM on an exchange (e.g. Coinbase, Kraken) and withdraw it to your Freighter address on the Stellar network. A few XLM is plenty for fees and trustline reserves.</P>
 
       <H2 id="get-stablecoins">3. Get USDC / EURC</H2>
-      <P>HyperDex swaps USDC ↔ EURC — both are Circle-issued stablecoins on Stellar. Get testnet versions from the Circle faucet:</P>
+      <P>HyperDex swaps USDC ↔ EURC — both are Circle-issued stablecoins on Stellar. Fund your wallet with either:</P>
       <Ul>
-        <Li>Visit <strong>faucet.circle.com</strong></Li>
-        <Li>Select network: <strong>Stellar</strong></Li>
-        <Li>Select asset: <strong>USDC</strong> or <strong>EURC</strong></Li>
-        <Li>Enter your Stellar address and request tokens</Li>
+        <Li>Buy native Stellar <strong>USDC</strong> on an exchange that supports it (e.g. Coinbase) and withdraw to your Stellar address</Li>
+        <Li>Or acquire it on the Stellar DEX via a path payment (XLM → USDC, then USDC → EURC) from a wallet like StellarX or Lobstr</Li>
+        <Li>Add a <strong>trustline</strong> for each asset in Freighter before receiving it (0.5 XLM reserve each)</Li>
       </Ul>
 
       <H2 id="run-services">4. Run Services (for local testing)</H2>

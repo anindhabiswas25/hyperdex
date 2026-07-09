@@ -2,6 +2,7 @@
 import React from 'react'
 import { useAuction } from '@/hooks/useAuction'
 import { useWallet }  from '@/hooks/useWallet'
+import { EXPLORER_BASE } from '@/lib/constants'
 
 // ── Color palette ──────────────────────────────────────────────────
 const C = {
@@ -240,7 +241,7 @@ export default function SwapCard() {
             </div>
           </div>
           {state.txHash && (
-            <a href={`https://stellar.expert/explorer/testnet/tx/${state.txHash}`}
+            <a href={`${EXPLORER_BASE}/tx/${state.txHash}`}
               target="_blank" rel="noopener noreferrer"
               style={{ color:C.violet, fontSize:'13px', textDecoration:'none', marginBottom:'16px', display:'block' }}>
               View on Stellar Explorer ↗

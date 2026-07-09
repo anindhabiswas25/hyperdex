@@ -1,7 +1,8 @@
 'use client';
 
 import { create } from 'zustand';
-import { ADMIN_WALLET_ADDRESS, TESTNET_PASSPHRASE } from '@/lib/constants/wallet';
+import { ADMIN_WALLET_ADDRESS } from '@/lib/constants/wallet';
+import { NETWORK_PASSPHRASE, HORIZON_URL } from '@/lib/constants';
 
 interface WalletState {
   address: string | null;
@@ -81,7 +82,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       // Network check
       try {
         const networkDetails = await getNetworkDetails();
-        if (networkDetails.networkPassphrase !== TESTNET_PASSPHRASE) {
+        if (networkDetails.networkPassphrase !== NETWORK_PASSPHRASE) {
           set({ isConnecting: false, isWrongNetwork: true });
           throw new Error('wrong_network');
         }
@@ -148,7 +149,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
 
   fetchXlmBalance: async (address: string) => {
     try {
-      const res = await fetch(`https://horizon-testnet.stellar.org/accounts/${address}`);
+      const res = await fetch(`${HORIZON_URL}/accounts/${address}`);
       if (!res.ok) { set({ xlmBalance: '0.00' }); return; }
       const data = await res.json();
       const xlmEntry = data.balances?.find((b: { asset_type: string; balance: string }) => b.asset_type === 'native');
@@ -172,7 +173,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       // Network check
       try {
         const networkDetails = await getNetworkDetails();
-        if (networkDetails.networkPassphrase !== TESTNET_PASSPHRASE) {
+        if (networkDetails.networkPassphrase !== NETWORK_PASSPHRASE) {
           set({ isWrongNetwork: true });
           return;
         }

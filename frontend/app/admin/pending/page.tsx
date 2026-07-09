@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Toast from '@/components/Toast';
-import { BACKEND_URL } from '@/lib/constants';
+import { BACKEND_URL, EXPLORER_BASE } from '@/lib/constants';
 import { adminFetch } from '@/lib/adminAuth';
 import AdminKeyGate from '@/components/admin/AdminKeyGate';
 import type { ToastState } from '@/lib/types';
@@ -478,7 +478,7 @@ function ApplicationDetail({
               Copy
             </button>
             <a
-              href={`https://stellar.expert/explorer/testnet/account/${app.stellarAddress}`}
+              href={`${EXPLORER_BASE}/account/${app.stellarAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 text-xs font-semibold text-navy hover:underline"

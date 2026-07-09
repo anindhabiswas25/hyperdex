@@ -1,6 +1,9 @@
 'use client';
 
 import { useWalletStore } from '@/store/walletStore';
+import { STELLAR_NETWORK } from '@/lib/constants';
+
+const WANT_NETWORK = STELLAR_NETWORK === 'mainnet' ? 'Stellar Mainnet (Public)' : 'Stellar Testnet';
 
 export default function WrongNetworkBanner() {
   const isWrongNetwork = useWalletStore(s => s.isWrongNetwork);
@@ -19,7 +22,7 @@ export default function WrongNetworkBanner() {
       <span style={{ fontSize: '16px' }}>⚠️</span>
       <span style={{ fontSize: '13px', color: '#f59e0b' }}>
         Wrong network detected. Please switch Freighter to{' '}
-        <strong>Stellar Testnet</strong> in the extension settings, then reconnect.
+        <strong>{WANT_NETWORK}</strong> in the extension settings, then reconnect.
       </span>
     </div>
   );
