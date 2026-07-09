@@ -40,8 +40,8 @@ async function bootstrap(): Promise<void> {
   const app = express();
   app.use(cors({
     origin: CORS_ORIGIN_LIST,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-key'],
     credentials: true,
   }));
   app.use(express.json());
