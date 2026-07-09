@@ -4,6 +4,7 @@ import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
+import { USDC_CONTRACT, EURC_CONTRACT } from './constants';
 
 const ENV_PATH = path.join(__dirname, '../.env');
 
@@ -241,8 +242,8 @@ async function main() {
       PORT: String(credentials.port),
       MAKER_ADDRESS: makerAddress,
       POOL_ADDRESS: poolAddress,
-      USDC_CONTRACT: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA',
-      EURC_CONTRACT: 'CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ',
+      USDC_CONTRACT,
+      EURC_CONTRACT,
     });
 
     fs.writeFileSync(ENV_PATH, updatedContent, { encoding: 'utf8', mode: 0o600 });

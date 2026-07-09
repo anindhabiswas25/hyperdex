@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Toast from '@/components/Toast';
 import { BACKEND_URL } from '@/lib/constants';
+import { adminFetch } from '@/lib/adminAuth';
+import AdminKeyGate from '@/components/admin/AdminKeyGate';
 import type { ToastState } from '@/lib/types';
 
 interface PendingApplication {
@@ -81,7 +83,7 @@ export default function AdminPendingPage() {
 
   const load = useCallback(async () => {
     try {
-      const res  = await fetch(`${BACKEND_URL}/api/admin/pending`);
+      const res  = await adminFetch(`${BACKEND_URL}/api/admin/pending`);
       const data = await res.json();
       setApplications(data.applications ?? []);
     } catch {
@@ -125,7 +127,7 @@ export default function AdminPendingPage() {
     if (!selected) return;
     setApproving(true);
     try {
-      const res  = await fetch(`${BACKEND_URL}/api/admin/pending/${selected._id}/approve`, { method: 'POST' });
+      const res  = await adminFetch(`${BACKEND_URL}/api/admin/pending/${selected._id}/approve`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setApprovedKey(data.apiKey);
@@ -144,7 +146,7 @@ export default function AdminPendingPage() {
     if (!selected) return;
     setRejecting(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/pending/${selected._id}/reject`, {
+      const res = await adminFetch(`${BACKEND_URL}/api/admin/pending/${selected._id}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: rejectReason }),
@@ -166,7 +168,7 @@ export default function AdminPendingPage() {
     if (!selected) return;
     setViewKeyLoading(true);
     try {
-      const res  = await fetch(`${BACKEND_URL}/api/admin/pending/${selected._id}/apikey`);
+      const res  = await adminFetch(`${BACKEND_URL}/api/admin/pending/${selected._id}/apikey`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? data.error);
       setApprovedKey(data.apiKey);
@@ -183,7 +185,7 @@ export default function AdminPendingPage() {
     if (!selected) return;
     setRotateLoading(true);
     try {
-      const res  = await fetch(`${BACKEND_URL}/api/admin/pending/${selected._id}/rotate-key`, { method: 'POST' });
+      const res  = await adminFetch(`${BACKEND_URL}/api/admin/pending/${selected._id}/rotate-key`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setApprovedKey(data.apiKey);
@@ -213,7 +215,7 @@ export default function AdminPendingPage() {
   };
 
   return (
-    <>
+    <AdminKeyGate>
       <Navbar />
       <Toast toast={toast} onDismiss={() => setToast(null)} />
 
@@ -407,7 +409,7 @@ export default function AdminPendingPage() {
           </div>
         </div>
       </main>
-    </>
+    </AdminKeyGate>
   );
 }
 

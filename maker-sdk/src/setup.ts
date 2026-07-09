@@ -7,9 +7,9 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 
+import { USDC_CONTRACT, EURC_CONTRACT, STELLAR_RPC } from './constants';
+
 const BACKEND_HTTP_URL = process.env.BACKEND_HTTP_URL ?? 'https://hyperdex.onrender.com';
-const USDC_CONTRACT = 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA';
-const EURC_CONTRACT = 'CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ';
 
 process.on('SIGINT', () => {
   console.log(chalk.red('\n\n  ✗ Setup interrupted.'));
@@ -164,8 +164,8 @@ async function main() {
       `# Stellar network — set to 'mainnet' for production (defaults to testnet).`,
       `# On mainnet also point STELLAR_RPC_URL at your production RPC and use the`,
       `# mainnet USDC/EURC SAC addresses below.`,
-      `STELLAR_NETWORK=testnet`,
-      `STELLAR_RPC_URL=https://soroban-testnet.stellar.org`,
+      `STELLAR_NETWORK=${process.env.STELLAR_NETWORK ?? 'testnet'}`,
+      `STELLAR_RPC_URL=${STELLAR_RPC}`,
       ``,
       `# Token contracts (Stellar SAC addresses — swap for mainnet SACs in production)`,
       `USDC_CONTRACT=${USDC_CONTRACT}`,

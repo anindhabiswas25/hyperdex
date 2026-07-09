@@ -18,9 +18,16 @@ import nacl from 'tweetnacl'
 import * as StellarSdk from '@stellar/stellar-sdk'
 import chalk from 'chalk'
 
-const POOL_REGISTRY = 'CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP'
-const STELLAR_RPC   = 'https://soroban-testnet.stellar.org'
-const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET
+const POOL_REGISTRY =
+  process.env.POOL_REGISTRY_CONTRACT_ADDRESS ||
+  process.env.POOL_REGISTRY_CONTRACT ||
+  'CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP'
+const STELLAR_RPC = process.env.STELLAR_RPC_URL || 'https://soroban-testnet.stellar.org'
+// On mainnet set STELLAR_NETWORK=mainnet (and STELLAR_RPC_URL / POOL_REGISTRY_CONTRACT_ADDRESS).
+const NETWORK_PASSPHRASE =
+  process.env.STELLAR_NETWORK === 'mainnet'
+    ? StellarSdk.Networks.PUBLIC
+    : StellarSdk.Networks.TESTNET
 const MAX_FEE = '1000000'
 
 function parseCred(filePath: string): Record<string, string> {

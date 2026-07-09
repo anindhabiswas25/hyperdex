@@ -11,16 +11,20 @@
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^15.0.0",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^7.3.1",
     "mongoose": "^8.4.0",
+    "tweetnacl": "^1.0.3",
     "uuid": "^10.0.0",
     "winston": "^3.13.0",
-    "ws": "^8.17.1",
+    "ws": "^8.21.0",
     "zod": "^3.23.8"
+  },
+  "overrides": {
+    "axios": "^1.18.1"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -34,7 +38,6 @@
     "js-sha256": "^0.11.1",
     "ts-jest": "^29.1.5",
     "ts-node": "^10.9.2",
-    "tweetnacl": "^1.0.3",
     "typescript": "^5.4.5"
   }
 }

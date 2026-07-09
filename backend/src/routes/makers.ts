@@ -18,6 +18,24 @@ import { MakerConnectionRegistry } from '../websocket/MakerConnection';
 import { PriceBook } from '../pricebook/PriceBook';
 import { ValidationError, NotFoundError } from '../utils/errors';
 import { config } from '../config';
+import { requireAdmin } from '../middleware/requireAdmin';
+
+/**
+ * Authenticate the caller as a maker via `Authorization: Bearer <sk_live_...>`.
+ * Returns the matched ApiKey doc (with makerId) or null. Shared by the routes
+ * that mutate maker-owned state.
+ */
+async function authMakerByApiKey(req: Request) {
+  const authHeader = req.headers.authorization ?? '';
+  const rawKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!rawKey) return null;
+  const prefix = rawKey.slice(0, 15);
+  const apiKeyDoc = await ApiKey.findOne({ keyPrefix: prefix, active: true });
+  if (!apiKeyDoc) return null;
+  const valid = await bcrypt.compare(rawKey, apiKeyDoc.keyHash);
+  if (!valid) return null;
+  return apiKeyDoc;
+}
 
 const router = Router();
 
@@ -171,7 +189,9 @@ router.get('/api/makers', async (_req: Request, res: Response, next: NextFunctio
 
 // ── POST /api/makers/register ──────────────────────────────────────────────────
 
-router.post('/api/makers/register', async (req: Request, res: Response, next: NextFunction) => {
+// Admin-only: this directly creates a maker AND mints a live API key, bypassing
+// the apply→approve flow. Must never be world-callable.
+router.post('/api/makers/register', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = RegisterSchema.safeParse(req.body);
     if (!body.success) throw new ValidationError(body.error.issues.map(i => i.message).join('; '));
@@ -459,19 +479,40 @@ router.patch('/api/makers/:address', async (req: Request, res: Response, next: N
     const { address } = req.params;
     if (!/^G[A-Z2-7]{55}$/.test(address)) throw new ValidationError('Invalid Stellar address');
 
+    // Authenticate: caller must present the API key that belongs to this maker.
+    // Without this, anyone could overwrite a maker's signerPublicKey — which is
+    // the key the backend uses for off-chain bid verification.
+    const apiKeyDoc = await authMakerByApiKey(req);
+    if (!apiKeyDoc) {
+      res.status(401).json({ success: false, error: 'Valid maker API key required' });
+      return;
+    }
+
+    const target = await Maker.findOne({ stellarAddress: address });
+    if (!target) throw new NotFoundError('Maker not found');
+    if (apiKeyDoc.makerId.toString() !== target._id.toString()) {
+      res.status(403).json({ success: false, error: 'API key does not match this maker' });
+      return;
+    }
+
+    // signerPublicKey, if provided, must be well-formed.
+    if (req.body.signerPublicKey !== undefined && !/^[0-9a-f]{64}$/.test(req.body.signerPublicKey)) {
+      res.status(400).json({ success: false, error: 'signerPublicKey must be 64 hex chars' });
+      return;
+    }
+
     const allowed = ['name', 'signerPublicKey', 'supportedPairs', 'serverUrl'];
     const updates: Record<string, unknown> = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
 
-    const maker = await Maker.findOneAndUpdate(
-      { stellarAddress: address },
+    const maker = await Maker.findByIdAndUpdate(
+      target._id,
       { $set: { ...updates, updatedAt: new Date() } },
       { new: true }
     ).lean();
 
-    if (!maker) throw new NotFoundError('Maker not found');
     res.json({ success: true, maker });
   } catch (err) {
     next(err);

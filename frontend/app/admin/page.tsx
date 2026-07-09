@@ -30,6 +30,7 @@ import {
   stroopsToHuman,
 } from '@/lib/stellar';
 import type { ToastState, AdminMakerRecord, HealthStatus } from '@/lib/types';
+import AdminKeyGate from '@/components/admin/AdminKeyGate';
 
 type Tab = 'makers' | 'register' | 'fees' | 'system';
 
@@ -41,7 +42,7 @@ export default function AdminPage() {
     setToast({ message, type });
 
   return (
-    <>
+    <AdminKeyGate>
       <Navbar />
       <Toast toast={toast} onDismiss={() => setToast(null)} />
 
@@ -88,7 +89,7 @@ export default function AdminPage() {
           </div>
         </div>
       </main>
-    </>
+    </AdminKeyGate>
   );
 }
 

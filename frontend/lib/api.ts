@@ -1,4 +1,5 @@
 import { BACKEND_URL } from './constants';
+import { adminFetch } from './adminAuth';
 import type { BackendQuote, TradeStatus, MakerInventory, HealthStatus, MakerInfo, AdminMakerRecord } from './types';
 
 export class ApiError extends Error {
@@ -101,8 +102,16 @@ export async function fetchMakers(): Promise<MakerInfo[]> {
 }
 
 export async function fetchAdminMakers(): Promise<AdminMakerRecord[]> {
-  const result = await get<{ makers: AdminMakerRecord[] }>('/api/admin/makers');
-  return result.makers;
+  const res = await adminFetch(`${BACKEND_URL}/api/admin/makers`);
+  const data = await res.json();
+  if (!res.ok) {
+    const errObj = data.error;
+    throw new ApiError(
+      (errObj && typeof errObj === 'object' ? errObj.message : data.error) ?? `HTTP ${res.status}`,
+      (errObj && typeof errObj === 'object' ? errObj.code : undefined) ?? 'UNKNOWN',
+    );
+  }
+  return data.makers;
 }
 
 export async function registerMakerInSystem(params: {
@@ -111,15 +120,28 @@ export async function registerMakerInSystem(params: {
   signerPublicKey: string;
   supportedPairs: { tokenIn: string; tokenOut: string }[];
 }): Promise<{ maker: { id: string; stellarAddress: string; name: string }; apiKey: string }> {
-  return post('/api/makers/register', params);
+  const res = await adminFetch(`${BACKEND_URL}/api/makers/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const errObj = data.error;
+    throw new ApiError(
+      (errObj && typeof errObj === 'object' ? errObj.message : data.error) ?? `HTTP ${res.status}`,
+      (errObj && typeof errObj === 'object' ? errObj.code : undefined) ?? 'UNKNOWN',
+    );
+  }
+  return data;
 }
 
 export async function activateMaker(id: string): Promise<void> {
-  await fetch(`${BACKEND_URL}/api/admin/makers/${id}/activate`, { method: 'PATCH' });
+  await adminFetch(`${BACKEND_URL}/api/admin/makers/${id}/activate`, { method: 'PATCH' });
 }
 
 export async function deactivateMaker(id: string): Promise<void> {
-  await fetch(`${BACKEND_URL}/api/admin/makers/${id}/deactivate`, { method: 'PATCH' });
+  await adminFetch(`${BACKEND_URL}/api/admin/makers/${id}/deactivate`, { method: 'PATCH' });
 }
 
 export async function fetchMakerStatus(makerAddress: string) {

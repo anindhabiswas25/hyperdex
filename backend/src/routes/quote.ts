@@ -28,6 +28,34 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Auctions fan out RFQs to every connected maker, so they need a tighter cap
+// than plain reads. Keyed by taker address when present, falling back to IP.
+const auctionLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 5,
+  keyGenerator: (req) => (req.body?.takerAddress as string) || req.ip || 'unknown',
+  handler: (_req, res) => {
+    res.status(429).json({
+      success: false,
+      error: {
+        code: 'RATE_LIMITED',
+        message: 'Too many quote requests. Please wait before trying again.',
+      },
+    });
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Result polling is frequent (once/sec for ~30s) but cheap; allow generous IP-based polling.
+const resultLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 120,
+  keyGenerator: (req) => req.ip || 'unknown',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const QuoteRequestSchema = z.object({
   tokenIn: z.string().min(1),
   tokenOut: z.string().min(1),
@@ -146,7 +174,7 @@ router.post('/api/quote/confirm', async (req: Request, res: Response, next: Next
 
 // ─── POST /api/quote/start ───────────────────────────────────────────────────
 
-router.post('/api/quote/start', async (req: Request, res: Response) => {
+router.post('/api/quote/start', auctionLimiter, async (req: Request, res: Response) => {
   try {
     const { tokenIn, tokenOut, amountIn, takerAddress } = req.body
 
@@ -265,7 +293,7 @@ router.post('/api/quote/start', async (req: Request, res: Response) => {
 
 // ─── GET /api/quote/result/:auctionId ────────────────────────────────────────
 
-router.get('/api/quote/result/:auctionId', async (req: Request, res: Response) => {
+router.get('/api/quote/result/:auctionId', resultLimiter, async (req: Request, res: Response) => {
   try {
     const { auctionId } = req.params
     const auction = auctionStore.get(auctionId)

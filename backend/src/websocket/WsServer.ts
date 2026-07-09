@@ -14,7 +14,9 @@ import { config, CORS_ORIGIN_LIST } from '../config';
 import { logger } from '../utils/logger';
 
 export function attachWsServer(httpServer: HttpServer): WebSocketServer {
-  const wss = new WebSocketServer({ noServer: true });
+  // maxPayload caps inbound frame size (64KB). Prevents memory-exhaustion DoS
+  // from oversized maker messages and hardens against the ws fragmentation CVE.
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
   const registry = MakerConnectionRegistry.getInstance();
 
   // Upgrade only on /ws/maker path
