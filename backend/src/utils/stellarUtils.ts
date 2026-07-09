@@ -1,5 +1,5 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { config } from '../config';
+import { config, NETWORK_PASSPHRASE } from '../config';
 
 let _server: StellarSdk.rpc.Server | null = null;
 
@@ -44,7 +44,7 @@ export async function getWalletTokenBalance(
 
   const tx = new StellarSdk.TransactionBuilder(account, {
     fee: '100',
-    networkPassphrase: StellarSdk.Networks.TESTNET,
+    networkPassphrase: NETWORK_PASSPHRASE,
   })
     .addOperation(contract.call('balance', walletScVal))
     .setTimeout(30)
@@ -93,7 +93,7 @@ export async function getPoolAddressFromRegistry(
   try {
     const tx = new StellarSdk.TransactionBuilder(account, {
       fee: '100',
-      networkPassphrase: StellarSdk.Networks.TESTNET,
+      networkPassphrase: NETWORK_PASSPHRASE,
     })
       .addOperation(contract.call('get_pool_address', makerScVal))
       .setTimeout(30)
@@ -139,7 +139,7 @@ export async function getMakerPoolBalance(
   try {
     const tx = new StellarSdk.TransactionBuilder(dummyAccount, {
       fee: '100',
-      networkPassphrase: StellarSdk.Networks.TESTNET,
+      networkPassphrase: NETWORK_PASSPHRASE,
     })
       .addOperation(contract.call('get_balance', tokenScVal))
       .setTimeout(30)

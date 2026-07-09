@@ -3,9 +3,8 @@ import {
   MAKER_POOL_FACTORY_CONTRACT,
   USDC_CONTRACT,
   EURC_CONTRACT,
+  NETWORK_PASSPHRASE,
 } from '@/lib/constants';
-
-const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
 
 async function getSdk() {
   return import('@stellar/stellar-sdk');

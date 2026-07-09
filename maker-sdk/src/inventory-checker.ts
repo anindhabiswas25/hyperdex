@@ -1,6 +1,10 @@
 import * as StellarSdk from '@stellar/stellar-sdk'
 
-const STELLAR_RPC = 'https://soroban-testnet.stellar.org'
+const STELLAR_RPC = process.env.STELLAR_RPC_URL || 'https://soroban-testnet.stellar.org'
+const NETWORK_PASSPHRASE =
+  process.env.STELLAR_NETWORK === 'mainnet'
+    ? StellarSdk.Networks.PUBLIC
+    : StellarSdk.Networks.TESTNET
 
 class InventoryChecker {
   private cache: {
@@ -79,7 +83,7 @@ class InventoryChecker {
       const account = await server.getAccount(this.makerAddress)
       const tx = new StellarSdk.TransactionBuilder(account, {
         fee: StellarSdk.BASE_FEE,
-        networkPassphrase: StellarSdk.Networks.TESTNET,
+        networkPassphrase: NETWORK_PASSPHRASE,
       })
         .addOperation(contract.call(
           'get_balance',

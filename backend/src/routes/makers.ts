@@ -346,7 +346,7 @@ router.get('/api/makers/:address/inventory', async (req: Request, res: Response,
       getPoolAddressFromRegistry(address, skipCache).catch(() => null),
       getWalletTokenBalance(address, config.USDC_CONTRACT_ADDRESS, skipCache).catch(() => '0'),
       getWalletTokenBalance(address, config.EURC_CONTRACT_ADDRESS, skipCache).catch(() => '0'),
-      axios.get(`https://horizon-testnet.stellar.org/accounts/${address}`).catch(() => null),
+      axios.get(`${config.HORIZON_URL}/accounts/${address}`).catch(() => null),
     ]);
 
     let walletXlm = '0';

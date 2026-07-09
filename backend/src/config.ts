@@ -12,6 +12,7 @@ const configSchema = z.object({
 
   STELLAR_NETWORK: z.enum(['testnet', 'mainnet']).default('testnet'),
   STELLAR_RPC_URL: z.string().url().default('https://soroban-testnet.stellar.org'),
+  HORIZON_URL: z.string().url().default('https://horizon-testnet.stellar.org'),
   USDC_CONTRACT_ADDRESS: z.string().min(1, 'USDC_CONTRACT_ADDRESS is required'),
   EURC_CONTRACT_ADDRESS: z.string().min(1, 'EURC_CONTRACT_ADDRESS is required'),
   POOL_REGISTRY_CONTRACT_ADDRESS: z.string().min(1, 'POOL_REGISTRY_CONTRACT_ADDRESS is required'),
@@ -46,3 +47,10 @@ if (!parsed.success) {
 export const config = parsed.data;
 
 export const CORS_ORIGIN_LIST = config.CORS_ORIGINS.split(',').map(s => s.trim());
+
+// Single source of truth for the network passphrase. Derived from STELLAR_NETWORK
+// so mainnet/testnet switch is a one-env-var change with no hardcoded passphrases.
+export const NETWORK_PASSPHRASE =
+  config.STELLAR_NETWORK === 'mainnet'
+    ? 'Public Global Stellar Network ; September 2015'
+    : 'Test SDF Network ; September 2015';

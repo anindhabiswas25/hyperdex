@@ -1,6 +1,4 @@
-import { STELLAR_RPC_URL } from '@/lib/constants';
-
-const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
+import { STELLAR_RPC_URL, NETWORK_PASSPHRASE } from '@/lib/constants';
 
 async function getSdk() {
   return import('@stellar/stellar-sdk');

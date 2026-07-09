@@ -2,6 +2,18 @@ export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localh
 export const STELLAR_RPC_URL = process.env.NEXT_PUBLIC_STELLAR_RPC_URL ?? 'https://soroban-testnet.stellar.org';
 export const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? 'testnet';
 
+// Derived from STELLAR_NETWORK so there are no hardcoded testnet passphrases.
+export const NETWORK_PASSPHRASE =
+  STELLAR_NETWORK === 'mainnet'
+    ? 'Public Global Stellar Network ; September 2015'
+    : 'Test SDF Network ; September 2015';
+
+export const HORIZON_URL =
+  process.env.NEXT_PUBLIC_HORIZON_URL ??
+  (STELLAR_NETWORK === 'mainnet'
+    ? 'https://horizon.stellar.org'
+    : 'https://horizon-testnet.stellar.org');
+
 export const QUOTE_VERIFIER_CONTRACT = process.env.NEXT_PUBLIC_QUOTE_VERIFIER_CONTRACT!;
 export const POOL_REGISTRY_CONTRACT = process.env.NEXT_PUBLIC_POOL_REGISTRY_CONTRACT!;
 export const MAKER_POOL_FACTORY_CONTRACT = process.env.NEXT_PUBLIC_MAKER_POOL_FACTORY_ADDRESS ?? '';
