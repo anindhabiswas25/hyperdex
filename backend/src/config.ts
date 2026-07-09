@@ -28,6 +28,10 @@ const configSchema = z.object({
   PRICE_LEVEL_STALE_MS: z.string().default('5000').transform(Number),
   WS_PING_INTERVAL_MS: z.string().default('30000').transform(Number),
   WS_PONG_TIMEOUT_MS: z.string().default('10000').transform(Number),
+  // Per-connection inbound message rate limit (token bucket). Sized for a maker
+  // pushing frequent price updates plus RFQ responses; well above legitimate traffic.
+  WS_MAX_MESSAGES_PER_SEC: z.string().default('25').transform(Number),
+  WS_MESSAGE_BURST: z.string().default('50').transform(Number),
 
   RATE_LIMIT_WINDOW_MS: z.string().default('1000').transform(Number),
   RATE_LIMIT_MAX_REQUESTS: z.string().default('10').transform(Number),

@@ -339,11 +339,23 @@ router.get('/api/quote/result/:auctionId', resultLimiter, async (req: Request, r
         if (maker?.name) makerName = maker.name
       } catch { /* ignore */ }
 
+      // The maker signs the GROSS amount_out. On-chain, quote_verifier carves the
+      // protocol fee out of it — fee = floor(amount_out * fee_bps / 10_000) — and
+      // pays the taker taker_gets = amount_out - fee. Show the trader that NET
+      // figure (and the fee) so the "You receive" number matches the actual payout,
+      // not the pre-fee amount. amountOut (raw/gross) stays untouched because the
+      // taker's signature is over the gross value the frontend puts in the tx.
+      const feeBps    = BigInt(config.PROTOCOL_FEE_BPS)
+      const grossOut  = BigInt(q.amountOut)
+      const feeAmount = (grossOut * feeBps) / 10_000n
+      const netOut    = grossOut - feeAmount
+
       const amtIn    = Number(auction.amountIn)
-      const amtOut   = Number(q.amountOut)
-      const rate     = (amtOut / amtIn).toFixed(7)
+      const rate     = (Number(netOut) / amtIn).toFixed(7)
       const humanIn  = (amtIn  / 1e7).toFixed(7)
-      const humanOut = (amtOut / 1e7).toFixed(7)
+      const humanOut = (Number(netOut)   / 1e7).toFixed(7)
+      const humanGrossOut = (Number(grossOut) / 1e7).toFixed(7)
+      const humanFee = (Number(feeAmount) / 1e7).toFixed(7)
       const inSym    = auction.tokenIn  === config.USDC_CONTRACT_ADDRESS ? 'USDC' : 'EURC'
       const outSym   = auction.tokenOut === config.USDC_CONTRACT_ADDRESS ? 'USDC' : 'EURC'
 
@@ -365,7 +377,10 @@ router.get('/api/quote/result/:auctionId', resultLimiter, async (req: Request, r
           signature:       q.signature,
           rate:            `1 ${inSym} = ${rate} ${outSym}`,
           humanAmountIn:   humanIn,
-          humanAmountOut:  humanOut,
+          humanAmountOut:  humanOut,       // NET of protocol fee — what the taker actually receives
+          humanAmountOutGross: humanGrossOut, // maker's quoted amount_out before fee
+          humanFee:        humanFee,       // protocol fee carved out on-chain
+          feeBps:          Number(feeBps),
           quotesReceived:  auction.quotes.length,
           allBidsCount:    auction.quotes.length
         }

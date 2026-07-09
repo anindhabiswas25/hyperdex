@@ -2,7 +2,7 @@
 
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error,
-    token, Address, BytesN, Env,
+    token, Address, Env,
 };
 
 const LEDGER_THRESHOLD: u32 = 1_000_000;
@@ -24,7 +24,6 @@ pub enum Error {
 #[derive(Clone)]
 enum DataKey {
     Owner,
-    SignerKey,
     QuoteVerifier,
     Usdc,
     Eurc,
@@ -90,7 +89,6 @@ impl MakerPool {
     pub fn initialize(
         env: Env,
         owner: Address,
-        signer_key: BytesN<32>,
         quote_verifier: Address,
         usdc: Address,
         eurc: Address,
@@ -107,9 +105,6 @@ impl MakerPool {
         env.storage().persistent().set(&DataKey::Owner, &owner);
         env.storage()
             .persistent()
-            .set(&DataKey::SignerKey, &signer_key);
-        env.storage()
-            .persistent()
             .set(&DataKey::QuoteVerifier, &quote_verifier);
         env.storage().persistent().set(&DataKey::Usdc, &usdc);
         env.storage().persistent().set(&DataKey::Eurc, &eurc);
@@ -123,9 +118,6 @@ impl MakerPool {
         env.storage()
             .persistent()
             .extend_ttl(&DataKey::Owner, LEDGER_THRESHOLD, LEDGER_BUMP);
-        env.storage()
-            .persistent()
-            .extend_ttl(&DataKey::SignerKey, LEDGER_THRESHOLD, LEDGER_BUMP);
         env.storage()
             .persistent()
             .extend_ttl(&DataKey::QuoteVerifier, LEDGER_THRESHOLD, LEDGER_BUMP);
@@ -269,27 +261,6 @@ impl MakerPool {
 
     pub fn get_owner(env: Env) -> Address {
         get_owner(&env)
-    }
-
-    pub fn get_signer_key(env: Env) -> BytesN<32> {
-        env.storage()
-            .persistent()
-            .get(&DataKey::SignerKey)
-            .unwrap()
-    }
-
-    pub fn update_signer_key(env: Env, new_signer_key: BytesN<32>) {
-        check_initialized(&env);
-        let owner = get_owner(&env);
-        owner.require_auth();
-        env.storage()
-            .persistent()
-            .set(&DataKey::SignerKey, &new_signer_key);
-        env.storage()
-            .persistent()
-            .extend_ttl(&DataKey::SignerKey, LEDGER_THRESHOLD, LEDGER_BUMP);
-        env.events()
-            .publish(("signer_key_updated",), (owner, new_signer_key));
     }
 }
 

@@ -2,7 +2,7 @@
 
 use crate::{Error, MakerPool, MakerPoolClient};
 use soroban_sdk::testutils::Address as _;
-use soroban_sdk::{token, Address, BytesN, Env};
+use soroban_sdk::{token, Address, Env};
 
 struct Ctx {
     env: Env,
@@ -24,8 +24,7 @@ fn setup() -> Ctx {
 
     let pool = env.register(MakerPool, ());
     let client = MakerPoolClient::new(&env, &pool);
-    let signer = BytesN::from_array(&env, &[7u8; 32]);
-    client.initialize(&owner, &signer, &verifier, &usdc, &eurc);
+    client.initialize(&owner, &verifier, &usdc, &eurc);
 
     // Fund owner with USDC.
     token::StellarAssetClient::new(&env, &usdc).mint(&owner, &50_000_000);
@@ -96,9 +95,8 @@ fn execute_swap_requires_verifier_auth() {
     let eurc = env.register_stellar_asset_contract_v2(admin.clone()).address();
     let pool_addr = env.register(MakerPool, ());
     let client = MakerPoolClient::new(&env, &pool_addr);
-    let signer = BytesN::from_array(&env, &[7u8; 32]);
     // initialize requires no auth in this contract, so it succeeds without mocks.
-    client.initialize(&owner, &signer, &verifier, &usdc, &eurc);
+    client.initialize(&owner, &verifier, &usdc, &eurc);
 
     let res = client.try_execute_swap(
         &usdc, &eurc, &1_000_000, &900_000, &taker, &100, &verifier,

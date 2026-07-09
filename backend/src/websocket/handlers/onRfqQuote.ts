@@ -45,6 +45,31 @@ export async function onRfqQuote(conn: MakerConnection, msg: RfqQuoteMessage): P
     return;
   }
 
+  // Cross-check the maker's SIGNED fields against the auction this bid belongs to.
+  // The signature is valid over whatever the maker put in the quote, so without
+  // this a maker could sign a quote for a different taker/pair/amount_in, bid an
+  // unbeatable amount_out, win the auction, and then have settlement fail on-chain
+  // (the frontend builds execute_quote from the AUCTION's fields, so ed25519_verify
+  // rejects the mismatch) — denying the trade. Reject any bid whose signed terms
+  // don't match the auction it was dispatched for.
+  const auction = auctionStore.get(rfqId);
+  if (auction) {
+    const mismatch =
+      quote.takerAddress !== auction.takerAddress ? 'takerAddress' :
+      quote.tokenIn      !== auction.tokenIn      ? 'tokenIn' :
+      quote.tokenOut     !== auction.tokenOut     ? 'tokenOut' :
+      quote.amountIn     !== auction.amountIn      ? 'amountIn' :
+      null;
+    if (mismatch) {
+      logger.warn('Bid rejected — signed field does not match auction', {
+        maker: conn.makerName,
+        rfqId: rfqId.slice(0, 8),
+        field: mismatch,
+      });
+      return;
+    }
+  }
+
   // Verify the ed25519 signature off-chain against the maker's key AS REGISTERED
   // ON-CHAIN in pool_registry — the exact key quote_verifier will check at
   // settlement. Using the on-chain key (not the mutable MongoDB copy) guarantees
@@ -92,8 +117,7 @@ export async function onRfqQuote(conn: MakerConnection, msg: RfqQuoteMessage): P
     amountOut: quote.amountOut,
   });
 
-  // Route to auction store (sealed-bid path).
-  const auction = auctionStore.get(rfqId);
+  // Route to auction store (sealed-bid path). `auction` was resolved above.
   if (auction) {
     auctionStore.addQuote(rfqId, {
       quoteId: quote.quoteId,

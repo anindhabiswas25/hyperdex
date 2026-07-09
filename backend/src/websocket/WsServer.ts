@@ -119,8 +119,38 @@ export function attachWsServer(httpServer: HttpServer): WebSocketServer {
       }, config.WS_PONG_TIMEOUT_MS);
     }, config.WS_PING_INTERVAL_MS);
 
+    // Per-connection inbound rate limit (token bucket). Even though the socket is
+    // authenticated, a single maker — or a leaked key — could otherwise flood
+    // rfqQuote/priceLevels frames and burn the event loop on parses, DB reads, and
+    // ed25519 verifies. The check runs BEFORE JSON.parse so over-limit frames cost
+    // nothing, and a connection that floods persistently is torn down.
+    const RATE = config.WS_MAX_MESSAGES_PER_SEC;
+    const BURST = config.WS_MESSAGE_BURST;
+    let tokens = BURST;
+    let lastRefill = Date.now();
+    let floodStrikes = 0;
+
     // Message handler
     ws.on('message', (data) => {
+      const now = Date.now();
+      tokens = Math.min(BURST, tokens + ((now - lastRefill) / 1000) * RATE);
+      lastRefill = now;
+
+      if (tokens < 1) {
+        // Over the limit — drop the frame unparsed. Sustained abuse (BURST frames
+        // dropped in a row without a single accepted one) closes the connection.
+        if (++floodStrikes >= BURST) {
+          logger.warn('Maker exceeded WS message rate — disconnecting', {
+            makerId: conn.makerId,
+            name: conn.makerName,
+          });
+          ws.close(4008, 'Message rate exceeded');
+        }
+        return;
+      }
+      tokens -= 1;
+      floodStrikes = 0;
+
       let parsed: unknown;
       try {
         parsed = JSON.parse(data.toString());

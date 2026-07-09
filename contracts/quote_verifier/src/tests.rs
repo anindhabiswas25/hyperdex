@@ -76,7 +76,7 @@ mod settlement_tests {
         verifier.initialize(&admin, &registry_addr, &fee_distributor, &usdc, &eurc, &FEE_BPS);
 
         let signer_key = BytesN::from_array(&env, &signing_key.verifying_key().to_bytes());
-        pool.initialize(&maker, &signer_key, &verifier_addr, &usdc, &eurc);
+        pool.initialize(&maker, &verifier_addr, &usdc, &eurc);
 
         // Register the maker in the registry (factory-authed).
         let mut pairs: Vec<(Address, Address)> = Vec::new(&env);
@@ -240,6 +240,58 @@ mod settlement_tests {
 
         let res = verifier.try_initialize(&admin, &registry, &fd, &usdc, &eurc, &10_001);
         assert_eq!(res, Err(Ok(Error::InvalidFee.into())));
+    }
+
+    #[test]
+    fn set_fee_bps_boundary() {
+        let f = setup(signer_from_seed(10));
+        // Exactly MAX_FEE_BPS is allowed.
+        f.verifier().set_fee_bps(&10_000);
+        assert_eq!(f.verifier().get_protocol_fee(), 10_000);
+        // One over the bound is rejected.
+        let res = f.verifier().try_set_fee_bps(&10_001);
+        assert_eq!(res, Err(Ok(Error::InvalidFee.into())));
+    }
+
+    #[test]
+    fn set_fee_bps_requires_admin_auth() {
+        let f = setup(signer_from_seed(11));
+        // Drop the blanket auth mock and authorize nothing: admin.require_auth
+        // inside set_fee_bps must now reject the call.
+        f.env.mock_auths(&[]);
+        let res = f.verifier().try_set_fee_bps(&50);
+        assert!(res.is_err(), "set_fee_bps must require the admin's authorization");
+    }
+
+    /// Genuine proof (not hidden by mock_all_auths) that settlement pulls the
+    /// taker's funds only under the taker's own authorization: the taker address
+    /// appears in the exercised auth set, covering the nested token_in transfer.
+    #[test]
+    fn taker_authorization_is_exercised() {
+        let f = setup(signer_from_seed(12));
+        let quote = make_quote(&f, 0x12, 2000);
+        let sig = sign(&f, &quote, &f.signing_key);
+
+        f.verifier().execute_quote(&quote, &sig);
+
+        let auths = f.env.auths();
+        assert!(
+            auths.iter().any(|(addr, _)| addr == &f.taker),
+            "settlement must require the taker's authorization"
+        );
+    }
+
+    /// The negative of the above: with real auth enforced and nothing authorized,
+    /// settlement must fail rather than silently pull the taker's tokens.
+    #[test]
+    fn settlement_without_taker_auth_fails() {
+        let f = setup(signer_from_seed(13));
+        let quote = make_quote(&f, 0x13, 2000);
+        let sig = sign(&f, &quote, &f.signing_key);
+
+        f.env.mock_auths(&[]);
+        let res = f.verifier().try_execute_quote(&quote, &sig);
+        assert!(res.is_err(), "settlement must fail when the taker has not authorized it");
     }
 
     fn env_random_token(env: &Env) -> Address {

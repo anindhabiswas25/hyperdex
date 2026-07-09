@@ -11,7 +11,7 @@ const LEDGER_THRESHOLD: u32 = 1_000_000;
 const LEDGER_BUMP: u32 = 1_500_000;
 
 #[contracterror]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Error {
     NotInitialized = 1,
     AlreadyInitialized = 2,
@@ -24,7 +24,6 @@ pub trait MakerPoolTrait {
     fn initialize(
         env: Env,
         owner: Address,
-        signer_key: BytesN<32>,
         quote_verifier: Address,
         usdc: Address,
         eurc: Address,
@@ -157,10 +156,11 @@ impl MakerPoolFactory {
 
         // Initialize the pool (atomic within this same transaction — deploy_v2
         // and this call happen in one host invocation, so there's no window
-        // for another transaction to race the pool's own initialize).
+        // for another transaction to race the pool's own initialize). The signer
+        // key is NOT stored in the pool — it lives only in pool_registry, which is
+        // the single source quote_verifier reads at settlement.
         MakerPoolClient::new(&env, &pool_address).initialize(
             &maker,
-            &signer_key,
             &quote_verifier,
             &usdc,
             &eurc,
@@ -192,3 +192,6 @@ impl MakerPoolFactory {
             .get(&DataKey::MakerPool(maker))
     }
 }
+
+#[cfg(test)]
+mod test;
