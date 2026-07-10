@@ -20,7 +20,7 @@ export default function FeeDistributorPage() {
         ]}
       />
       <P><strong>Current fee rate:</strong> 10 bps (0.10%) of <Mono>amount_out</Mono></P>
-      <P><strong>Address:</strong> <Mono>CCQIZPZD7T2ZFYFTISMJ7GSPLK32L43EXJLHZM7JJX6ERXWO7DURJSYF</Mono></P>
+      <P><strong>Address:</strong> <Mono>CAAWWYIUWKV2Z4OGAVBXNVRGRCN3QY3FF4M2BLV72V2MBNEVFLMSAU2R</Mono></P>
     </>
   );
 }

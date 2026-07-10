@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 import Navbar from '@/components/Navbar';
+import { STELLAR_NETWORK } from '@/lib/constants';
 
 function useReveal() {
   useEffect(() => {
@@ -459,7 +460,7 @@ export default function HomePage() {
           {/* Bottom bar */}
           <div className="border-t border-black/10 py-5 flex flex-col sm:flex-row justify-between items-center gap-3">
             <p className="text-ink-muted text-sm">&copy; 2026 HyperDex. All rights reserved.</p>
-            <p className="text-ink-muted text-sm">Stellar Testnet</p>
+            <p className="text-ink-muted text-sm">{STELLAR_NETWORK === 'mainnet' ? 'Stellar Mainnet' : 'Stellar Testnet'}</p>
           </div>
         </div>
       </footer>

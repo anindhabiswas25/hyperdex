@@ -28,7 +28,7 @@ export default function QuoteVerifierPage() {
           ['initialize(registry, factory, fee_distributor, fee_bps)', 'Admin', 'One-time wiring of registry, pool factory and fee distributor'],
         ]}
       />
-      <P><strong>Address:</strong> <Mono>CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN</Mono></P>
+      <P><strong>Address:</strong> <Mono>CDMOUCUKCZRMSYQE5TQ7QVGVUFJYFSP7XLLBHL3ZE2EQLZGZUFC4PHXK</Mono></P>
     </>
   );
 }

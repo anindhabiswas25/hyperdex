@@ -49,7 +49,7 @@ export default function ConnectPrompt() {
           >
             Freighter
           </a>
-          {' '}browser extension on Stellar testnet.
+          {' '}browser extension on Stellar mainnet.
         </p>
       </div>
     </div>

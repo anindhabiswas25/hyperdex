@@ -7,7 +7,7 @@ export default function TroubleshootPage() {
     { problem: 'Dashboard shows "SDK Offline" but the SDK terminal is connected', why: 'Idle WebSocket connections drop on hosted backends; the SDK auto-reconnects and the backend now guards the reconnect race so the live socket stays registered.', fix: 'Usually self-heals within seconds. If it persists, restart the SDK (Ctrl+C, then npm run dev <name>).' },
     { problem: 'Custom --engine did not load', why: 'The engine path is wrong or the file does not export getLevels/getQuote.', fix: 'Fix the path and keep the -- separator (npm run dev <name> -- --engine=./x.ts). The SDK falls back to the built-in engine and logs why, so check the banner Engine: line.' },
     { problem: 'Freighter shows "Transaction Failed"', why: 'The quote expired (30-second quote window elapsed) or the pool balance was drained between auction and settlement.', fix: 'Accept quotes faster. If pool balance is the issue, deposit more inventory.' },
-    { problem: 'Freighter not connecting to Testnet', why: 'Freighter is set to Mainnet.', fix: 'Open Freighter → Settings → Network → select Testnet.' },
+    { problem: '"Wrong network detected" banner / Freighter not connecting', why: 'Freighter is set to a network other than Mainnet.', fix: 'Open Freighter → Settings → Network → select Mainnet (Public), then reconnect.' },
     { problem: '"Maker not registered" error on /maker page', why: 'Your wallet address is not in the pool_registry contract.', fix: 'Complete the on-chain registration step — paste your signer public key and call register_maker via the /maker UI.' },
   ];
 

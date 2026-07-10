@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { STELLAR_NETWORK } from '@/lib/constants';
 
 type Pt = { t: number; p: number };
 type Period = 'LIVE' | '1D' | '1W' | '1M' | '1Y' | 'All';
@@ -165,7 +166,7 @@ export default function PriceChartPanel() {
           </div>
           <span className="font-display text-sm font-semibold text-ink">USDC / EURC</span>
           <span className="text-[11px] font-semibold text-ink-muted bg-black/6 px-2.5 py-0.5 rounded-full border border-black/8">
-            Stellar Testnet
+            {STELLAR_NETWORK === 'mainnet' ? 'Stellar Mainnet' : 'Stellar Testnet'}
           </span>
         </div>
 

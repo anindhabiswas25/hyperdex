@@ -4,18 +4,18 @@ export default function DeploymentsPage() {
   return (
     <>
       <H1 tag="Reference">Deployments</H1>
-      <Callout type="warn" title="Testnet Only">All addresses below are on Stellar Testnet. Mainnet is not yet live.</Callout>
+      <Callout type="warn" title="Live on Mainnet">All addresses below are on Stellar Mainnet (Public network). Transactions move real funds.</Callout>
 
-      <H2 id="smart-contracts">Smart Contracts (Stellar Testnet)</H2>
+      <H2 id="smart-contracts">Smart Contracts (Stellar Mainnet)</H2>
       <Table
         headers={['Contract', 'Address']}
         rows={[
-          ['pool_registry',      'CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP'],
-          ['quote_verifier',     'CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN'],
-          ['maker_pool_factory', 'CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6'],
-          ['fee_distributor',    'CCQIZPZD7T2ZFYFTISMJ7GSPLK32L43EXJLHZM7JJX6ERXWO7DURJSYF'],
-          ['USDC (SAC)',         'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA'],
-          ['EURC (SAC)',         'CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ'],
+          ['pool_registry',      'CDONQCEJFQHOUIFWB4X4K2MVSFXH6HLEYPWRBPTAUR4WZNP2FD4YSQWW'],
+          ['quote_verifier',     'CDMOUCUKCZRMSYQE5TQ7QVGVUFJYFSP7XLLBHL3ZE2EQLZGZUFC4PHXK'],
+          ['maker_pool_factory', 'CBDD5WBPCX6GSF4XIP6CAKAM3TCU6R73CW7QNYUTXXT3OAGEPFFACOI4'],
+          ['fee_distributor',    'CAAWWYIUWKV2Z4OGAVBXNVRGRCN3QY3FF4M2BLV72V2MBNEVFLMSAU2R'],
+          ['USDC (SAC)',         'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75'],
+          ['EURC (SAC)',         'CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV'],
         ]}
       />
       <Callout type="info" title="Per-maker pools">Each maker has their <strong>own</strong> maker_pool contract, deployed on demand by <strong>maker_pool_factory</strong> when they register. There is no single shared vault — a pool address is unique per maker and shown on the /maker dashboard.</Callout>

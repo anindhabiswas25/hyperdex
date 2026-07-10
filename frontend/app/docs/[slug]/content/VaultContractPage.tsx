@@ -25,8 +25,8 @@ export default function VaultContractPage() {
           ['get_balances()', 'Anyone', 'Returns the pool USDC + EURC balances in stroops'],
         ]}
       />
-      <P><strong>Factory address:</strong> <Mono>CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6</Mono> — individual pool addresses are per-maker and shown on the /maker dashboard.</P>
-      <P><strong>Persistent TTL:</strong> every <Mono>deposit</Mono>/<Mono>withdraw</Mono> bumps all storage entries so the pool doesn&apos;t expire on testnet (~4096-ledger TTL).</P>
+      <P><strong>Factory address:</strong> <Mono>CBDD5WBPCX6GSF4XIP6CAKAM3TCU6R73CW7QNYUTXXT3OAGEPFFACOI4</Mono> — individual pool addresses are per-maker and shown on the /maker dashboard.</P>
+      <P><strong>Persistent TTL:</strong> every <Mono>deposit</Mono>/<Mono>withdraw</Mono> bumps all storage entries so the pool doesn&apos;t expire (Soroban persistent-storage TTL).</P>
     </>
   );
 }
