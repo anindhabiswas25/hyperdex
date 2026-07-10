@@ -126,8 +126,8 @@ Client                                Server
 {
   "type": "priceLevels",
   "message": {
-    "tokenIn": "CBIELTK6YBZJU5U...",
-    "tokenOut": "CCUUDM434BMZMYW...",
+    "tokenIn": "CCW67TSZV3SSS2H...",
+    "tokenOut": "CDTKPWPLOURQA2S...",
     "levels": [
       { "quantity": "1000000", "price": "0.9245" },
       { "quantity": "5000000", "price": "0.9240" }
@@ -198,8 +198,8 @@ Get best quote for a swap. Rate limited: 10 req/s per IP.
 **Request:**
 ```json
 {
-  "tokenIn": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
-  "tokenOut": "CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ",
+  "tokenIn": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+  "tokenOut": "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV",
   "amountIn": "1000000",
   "takerAddress": "GABC...XYZ"
 }
@@ -448,8 +448,8 @@ curl -X POST http://localhost:4000/api/makers/register \
     "name": "My Market Maker",
     "signerPublicKey": "abcdef...",
     "supportedPairs": [
-      { "tokenIn": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
-        "tokenOut": "CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ" }
+      { "tokenIn": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+        "tokenOut": "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV" }
     ]
   }'
 ```
@@ -474,7 +474,7 @@ npm run dev
 ```bash
 curl -X POST http://localhost:4000/api/makers/register \
   -H "Content-Type: application/json" \
-  -d '{"stellarAddress":"GAHJJJKMOKYE4RVPZEWZTKH5FVIIA5T2EMWNA5YQBDAGTBU7BVXD9YWZ","name":"Test MM","signerPublicKey":"'$(head -c 32 /dev/urandom | xxd -p)'","supportedPairs":[{"tokenIn":"CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA","tokenOut":"CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ"}]}'
+  -d '{"stellarAddress":"GAHJJJKMOKYE4RVPZEWZTKH5FVIIA5T2EMWNA5YQBDAGTBU7BVXD9YWZ","name":"Test MM","signerPublicKey":"'$(head -c 32 /dev/urandom | xxd -p)'","supportedPairs":[{"tokenIn":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","tokenOut":"CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV"}]}'
 ```
 
 **Step 3 — Connect maker WebSocket client (wscat or websocat):**
@@ -487,14 +487,14 @@ wscat -c ws://localhost:4000/ws/maker \
 
 **Step 4 — Send price levels from the maker client:**
 ```json
-{"type":"priceLevels","message":{"tokenIn":"CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA","tokenOut":"CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ","levels":[{"quantity":"100000","price":"0.9245"},{"quantity":"1000000","price":"0.9240"}]}}
+{"type":"priceLevels","message":{"tokenIn":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","tokenOut":"CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV","levels":[{"quantity":"100000","price":"0.9245"},{"quantity":"1000000","price":"0.9240"}]}}
 ```
 
 **Step 5 — Request a quote from REST (separate terminal):**
 ```bash
 curl -X POST http://localhost:4000/api/quote \
   -H "Content-Type: application/json" \
-  -d '{"tokenIn":"CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA","tokenOut":"CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ","amountIn":"500000","takerAddress":"GAHJJJKMOKYE4RVPZEWZTKH5FVIIA5T2EMWNA5YQBDAGTBU7BVXD9YWZ"}'
+  -d '{"tokenIn":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","tokenOut":"CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV","amountIn":"500000","takerAddress":"GAHJJJKMOKYE4RVPZEWZTKH5FVIIA5T2EMWNA5YQBDAGTBU7BVXD9YWZ"}'
 ```
 
 **Step 6 — Watch the RFQ arrive at the maker WebSocket:**

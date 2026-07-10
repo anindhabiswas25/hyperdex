@@ -7,7 +7,7 @@
 <img src="https://img.shields.io/badge/Rust-1.70%2B-red?style=for-the-badge" />
 <img src="https://img.shields.io/badge/Next.js-14-black?style=for-the-badge" />
 <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge" />
-<img src="https://img.shields.io/badge/Status-Live%20on%20Testnet-brightgreen?style=for-the-badge" />
+<img src="https://img.shields.io/badge/Status-Live%20on%20Mainnet-brightgreen?style=for-the-badge" />
 
 # HyperDEX
 
@@ -15,7 +15,7 @@
 
 **Taker requests quote → Maker signs off-chain → Soroban verifies ed25519 and settles atomically**
 
-[Live App](https://hyperdex-psi.vercel.app) · [Backend API](https://hyperdex.onrender.com/health) · [Explorer](https://stellar.expert/explorer/testnet) · [Contracts](#-deployed-contracts) · [Architecture](#-architecture) · [Quick Start](#-quick-start)
+[Live App](https://hyperdex-psi.vercel.app) · [Backend API](https://hyperdex.onrender.com/health) · [Explorer](https://stellar.expert/explorer/public) · [Contracts](#-deployed-contracts) · [Architecture](#-architecture) · [Quick Start](#-quick-start)
 
 </div>
 
@@ -186,7 +186,7 @@ pub struct Quote {
 
 ```
 ╔═══════════════════════════════════════════════════════════════════╗
-║                     STELLAR TESTNET                               ║
+║                     STELLAR MAINNET                              ║
 ║                                                                   ║
 ║   ┌─────────────────────────────────────────────────────────┐    ║
 ║   │  Soroban Smart Contracts                                │    ║
@@ -338,7 +338,7 @@ Each registered maker has their own isolated pool contract deployed by the facto
 
 **Access control:** `execute_swap` requires `require_auth()` from the registered `quote_verifier` address — cannot be called directly.
 
-**Persistent storage TTL:** All storage entries (`Usdc`, `Eurc`, `SignerKey`, `QuoteVerifier`, `Owner`) are extended on every `deposit()` and `withdraw()` call to prevent testnet ledger expiry (~4096 ledger TTL on testnet ≈ 6 hours without bump).
+**Persistent storage TTL:** All storage entries (`Usdc`, `Eurc`, `SignerKey`, `QuoteVerifier`, `Owner`) are extended on every `deposit()` and `withdraw()` call to prevent Soroban persistent-storage ledger expiry (the entry TTL is bumped on each state change).
 
 ### `maker_pool_factory`
 
@@ -503,29 +503,29 @@ HyperDex/
 
 ## 🚀 Deployed Contracts
 
-### Stellar Testnet — Live
+### Stellar Mainnet — Live
 
-> Explorer: [https://stellar.expert/explorer/testnet](https://stellar.expert/explorer/testnet)
+> Explorer: [https://stellar.expert/explorer/public](https://stellar.expert/explorer/public)
 
 | Contract | Address | Explorer |
 |---|---|---|
-| **pool_registry** | `CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP` | [view](https://stellar.expert/explorer/testnet/contract/CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP) |
-| **quote_verifier** | `CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN` | [view](https://stellar.expert/explorer/testnet/contract/CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN) |
-| **maker_pool_factory** | `CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6` | [view](https://stellar.expert/explorer/testnet/contract/CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6) |
-| **fee_distributor** | `CCQIZPZD7T2ZFYFTISMJ7GSPLK32L43EXJLHZM7JJX6ERXWO7DURJSYF` | [view](https://stellar.expert/explorer/testnet/contract/CCQIZPZD7T2ZFYFTISMJ7GSPLK32L43EXJLHZM7JJX6ERXWO7DURJSYF) |
-| **USDC SAC** | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` | [view](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
-| **EURC SAC** | `CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ` | [view](https://stellar.expert/explorer/testnet/contract/CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ) |
+| **pool_registry** | `CDONQCEJFQHOUIFWB4X4K2MVSFXH6HLEYPWRBPTAUR4WZNP2FD4YSQWW` | [view](https://stellar.expert/explorer/public/contract/CDONQCEJFQHOUIFWB4X4K2MVSFXH6HLEYPWRBPTAUR4WZNP2FD4YSQWW) |
+| **quote_verifier** | `CDMOUCUKCZRMSYQE5TQ7QVGVUFJYFSP7XLLBHL3ZE2EQLZGZUFC4PHXK` | [view](https://stellar.expert/explorer/public/contract/CDMOUCUKCZRMSYQE5TQ7QVGVUFJYFSP7XLLBHL3ZE2EQLZGZUFC4PHXK) |
+| **maker_pool_factory** | `CBDD5WBPCX6GSF4XIP6CAKAM3TCU6R73CW7QNYUTXXT3OAGEPFFACOI4` | [view](https://stellar.expert/explorer/public/contract/CBDD5WBPCX6GSF4XIP6CAKAM3TCU6R73CW7QNYUTXXT3OAGEPFFACOI4) |
+| **fee_distributor** | `CAAWWYIUWKV2Z4OGAVBXNVRGRCN3QY3FF4M2BLV72V2MBNEVFLMSAU2R` | [view](https://stellar.expert/explorer/public/contract/CAAWWYIUWKV2Z4OGAVBXNVRGRCN3QY3FF4M2BLV72V2MBNEVFLMSAU2R) |
+| **USDC SAC** | `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75` | [view](https://stellar.expert/explorer/public/contract/CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75) |
+| **EURC SAC** | `CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV` | [view](https://stellar.expert/explorer/public/contract/CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV) |
 
 **Admin / Treasury:** `GAL6ZVVRE2RPFS2X23I65QANHHIBGHKTGGVIT5AJURRKTIMEVUMJJUZZ`  
 **Protocol Fee:** 10 bps (0.1%) per swap  
-**Token Issuer (both USDC + EURC):** `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5` (Circle testnet)
+**USDC Issuer:** `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN` (Circle mainnet)  
+**EURC Issuer:** `GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2` (Circle mainnet)
 
-### WASM Hashes (deployed 2026-05-18)
+### WASM Hashes (mainnet, deployed 2026-07-10)
 
 | Contract | WASM Hash |
 |---|---|
-| maker_pool | `6c0c93323753e52da4342cd424077e50101152369789c3449000b3eb8e25aaa6` |
-| maker_pool_factory | `d62472cfabe0e0f7010e14ee1ab404e01525ac26ee67890557a94794c260fdf7` |
+| maker_pool | `a0e1489bc47c150b41fc2bee1f049cb66546964e1a43f8db89e52e0187aed443` |
 
 ---
 
@@ -604,8 +604,8 @@ Base URL: `https://hyperdex.onrender.com`
 
 ```json
 {
-  "tokenIn":      "CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ",
-  "tokenOut":     "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+  "tokenIn":      "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV",
+  "tokenOut":     "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
   "amountIn":     "200000000",
   "takerAddress": "G..."
 }
@@ -736,8 +736,8 @@ MAKER_ADDRESS=G...
 POOL_ADDRESS=C...
 PORT=3001
 BACKEND_WS_URL=wss://hyperdex.onrender.com/ws/maker
-USDC_CONTRACT=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
-EURC_CONTRACT=CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ
+USDC_CONTRACT=CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75
+EURC_CONTRACT=CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV
 ```
 
 ---
@@ -801,13 +801,13 @@ Freighter signs execute_quote TX
 
 ```env
 NEXT_PUBLIC_BACKEND_URL=https://hyperdex.onrender.com
-NEXT_PUBLIC_STELLAR_NETWORK=testnet
-NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
-NEXT_PUBLIC_QUOTE_VERIFIER_CONTRACT=CA5VBADGOYSM4RXZPNA57GQYISA5DF3RDOHNYDXYYYGQDJJVW47TXIVN
-NEXT_PUBLIC_POOL_REGISTRY_CONTRACT=CA6HM3OXPWVKJ2GOJV7JXXPYG2GXYHL3DI6QRTUZ5FN4KJGP4MSOFWCP
-NEXT_PUBLIC_MAKER_POOL_FACTORY_ADDRESS=CBDOO3W2VUUN3FEGSHL4PRWQATXFN25NHR555YLPNZ4ZPAQQ4PIQPFV6
-NEXT_PUBLIC_USDC_CONTRACT=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
-NEXT_PUBLIC_EURC_CONTRACT=CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ
+NEXT_PUBLIC_STELLAR_NETWORK=mainnet
+NEXT_PUBLIC_STELLAR_RPC_URL=https://rpc.ankr.com/stellar_soroban
+NEXT_PUBLIC_QUOTE_VERIFIER_CONTRACT=CDMOUCUKCZRMSYQE5TQ7QVGVUFJYFSP7XLLBHL3ZE2EQLZGZUFC4PHXK
+NEXT_PUBLIC_POOL_REGISTRY_CONTRACT=CDONQCEJFQHOUIFWB4X4K2MVSFXH6HLEYPWRBPTAUR4WZNP2FD4YSQWW
+NEXT_PUBLIC_MAKER_POOL_FACTORY_ADDRESS=CBDD5WBPCX6GSF4XIP6CAKAM3TCU6R73CW7QNYUTXXT3OAGEPFFACOI4
+NEXT_PUBLIC_USDC_CONTRACT=CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75
+NEXT_PUBLIC_EURC_CONTRACT=CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV
 NEXT_PUBLIC_ADMIN_ADDRESS=GAL6ZVVRE2RPFS2X23I65QANHHIBGHKTGGVIT5AJURRKTIMEVUMJJUZZ
 ```
 
@@ -821,8 +821,8 @@ NEXT_PUBLIC_ADMIN_ADDRESS=GAL6ZVVRE2RPFS2X23I65QANHHIBGHKTGGVIT5AJURRKTIMEVUMJJU
 - **Node.js** 20+
 - **Stellar CLI** (`cargo install --locked stellar-cli`)
 - **MongoDB** (local or Atlas)
-- **Freighter** browser extension set to Testnet
-- A funded Stellar testnet account ([get funds](https://laboratory.stellar.org/#account-creator?network=test))
+- **Freighter** browser extension set to Mainnet (Public)
+- A funded Stellar mainnet account (XLM for fees + USDC/EURC trustlines)
 
 ### 1. Clone & Install
 
@@ -848,20 +848,28 @@ WASM files land in `target/wasm32-unknown-unknown/release/`:
 - `maker_pool_factory.wasm`
 - `fee_distributor.wasm`
 
-### 3. Deploy Contracts (or use existing testnet deployments)
+### 3. Deploy Contracts (or use the live mainnet deployments)
 
 ```bash
-# Configure stellar identity
-stellar keys generate admin --network testnet
-stellar keys fund admin --network testnet
+# Configure stellar identity (fund it with ~60 XLM on mainnet)
+stellar keys generate admin --network mainnet
 
 export ADMIN_IDENTITY=admin
 chmod +x scripts/deploy-v2.sh
-./scripts/deploy-v2.sh
+
+# Mainnet: supply the Circle mainnet SAC addresses and a reliable RPC.
+# STELLAR_INCLUSION_FEE is required — the default 100-stroop fee is too low
+# for mainnet and the submission will time out without it.
+STELLAR_INCLUSION_FEE=10000000 \
+STELLAR_RPC_URL=https://rpc.ankr.com/stellar_soroban \
+ADMIN_IDENTITY=admin NETWORK=mainnet \
+  USDC=CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75 \
+  EURC=CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV \
+  ./scripts/deploy-v2.sh
 # Contract addresses auto-written to backend/.env and frontend/.env.local
 ```
 
-Or skip deployment and use the already-deployed testnet contracts from the [Deployed Contracts](#-deployed-contracts) section.
+Or skip deployment and use the already-deployed mainnet contracts from the [Deployed Contracts](#-deployed-contracts) section.
 
 ### 4. Run the Backend
 
@@ -950,8 +958,8 @@ curl https://hyperdex.onrender.com/health
 curl -X POST https://hyperdex.onrender.com/api/quote \
   -H 'Content-Type: application/json' \
   -d '{
-    "tokenIn":      "CCUUDM434BMZMYWYDITHFXHDMIVTGGD6T2I5UKNX5BSLXLW7HVR4MCGZ",
-    "tokenOut":     "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+    "tokenIn":      "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV",
+    "tokenOut":     "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
     "amountIn":     "200000000",
     "takerAddress": "G..."
   }'
@@ -964,13 +972,15 @@ curl https://hyperdex.onrender.com/api/makers
 
 ## 🔐 Security Notes
 
-> **This is a testnet MVP.** The following caveats apply before mainnet deployment.
+> **HyperDEX is live on Stellar Mainnet and has not yet undergone a third-party
+> security audit.** Swaps move real funds — use at your own risk and start with
+> small amounts. The following hardening items remain open.
 
 | Area | Current State | Production Recommendation |
 |---|---|---|
 | **Signer key storage** | ed25519 secret in `maker-sdk/.env` | HSM or KMS-backed key management |
 | **Admin key** | Single Stellar keypair | Migrate to multisig (e.g. Stellar threshold signatures) |
-| **Audit** | Not audited | Full audit by OtterSec / Halborn before mainnet |
+| **Audit** | **Not independently audited** | Full third-party audit (e.g. OtterSec / Halborn) |
 | **Replay protection** | `quote_id` stored in Soroban persistent storage | Confirmed — enforced on-chain |
 | **Quote expiry** | 30 seconds, enforced on-chain via `ledger().timestamp()` | Confirmed — cannot be bypassed |
 | **Vault access** | `execute_swap` requires `require_auth()` from `quote_verifier` | Confirmed — direct calls impossible |
@@ -982,8 +992,8 @@ curl https://hyperdex.onrender.com/api/makers
 
 ## 📈 Roadmap
 
-### Phase 1 — Testnet MVP (Current ✅)
-- [x] 5 Soroban contracts deployed on Stellar testnet
+### Phase 1 — Mainnet Launch (Current ✅)
+- [x] 5 Soroban contracts deployed on Stellar mainnet
 - [x] Sealed-bid RFQ architecture — zero slippage, no front-running
 - [x] WebSocket-based maker SDK with ed25519 signing
 - [x] Pluggable `MakerEngine` pricing system — built-in ghost-price engine (default) + custom engines via `--engine`
@@ -1003,7 +1013,8 @@ curl https://hyperdex.onrender.com/api/makers
 - [ ] Quote streaming (WebSocket quote updates instead of polling)
 
 ### Phase 3 — Advanced Features
-- [ ] Mainnet deployment
+- [x] Mainnet deployment
+- [ ] Third-party security audit
 - [ ] Professional market maker integrations (API docs + SDK packaging)
 - [ ] Protocol governance — fee parameter voting
 - [ ] Maker insurance fund — slashing for quote non-fulfillment
@@ -1022,7 +1033,7 @@ curl https://hyperdex.onrender.com/api/makers
 | Layer | Technology | Version |
 |---|---|---|
 | Smart Contracts | Rust + Soroban SDK | latest |
-| Blockchain | Stellar Testnet (Soroban) | — |
+| Blockchain | Stellar Mainnet (Soroban) | — |
 | Contract CLI | Stellar CLI | latest |
 | Backend Runtime | Node.js | 20+ |
 | API Framework | Express | 4.x |
